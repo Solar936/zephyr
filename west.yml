@@ -16,13 +16,15 @@
 
 manifest:
   defaults:
-    remote: upstream
+    remote: mist-modules
 
   remotes:
     - name: upstream
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: mist-modules
+      url-base: http://gitlab.zgmicro.com/zgmbt/mist/modules
 
   group-filter: [-babblesim, -optional, -testing]
 
