@@ -2587,6 +2587,14 @@ static void hci_cmd_complete(struct net_buf *buf)
 	 */
 	status = buf->data[0];
 
+	// ZGMICRO Start
+	#if CONFIG_ZGMICRO_DEFINE_CMD_EVT_FORMAT
+	if(BT_OGF(opcode) == BT_OGF_VS) {
+		status = buf->data[2];
+	}
+	#endif
+	// ZGMICRO End
+
 	/* HOST_NUM_COMPLETED_PACKETS should not generate a response under normal operation.
 	 * The generation of this command ignores `ncmd_sem`, so should not be given here.
 	 */
