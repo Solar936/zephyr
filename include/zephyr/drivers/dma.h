@@ -210,8 +210,13 @@ struct dma_config {
 	 * - others hardware specific
 	 */
 	uint32_t  channel_direction :    3;
+
+	// ZGMICRO Start
+	#if !CONFIG_DMA_WS96XX
 	/** enable half completion callback when set to 1 */
 	uint32_t  half_complete_callback_en : 1;
+	#endif // !CONFIG_DMA_WS96XX
+	// ZGMICRO End
 	/**
 	 * Completion callback enable
 	 *
@@ -253,7 +258,15 @@ struct dma_config {
 	/** Cyclic transfer list, HW specific */
 	uint32_t  cyclic :				 1;
 
+	// ZGMICRO Start
+	#if CONFIG_DMA_WS96XX
+	uint32_t  syncgain_en :             1;
+	uint32_t  bm_channels :             2;
+	#else // CONFIG_DMA_WS96XX
 	uint32_t  _reserved :             2;
+	#endif // CONFIG_DMA_WS96XX
+	// ZGMICRO End
+
 	/** Width of source data (in bytes) */
 	uint32_t  source_data_size :    16;
 	/** Width of destination data (in bytes) */
