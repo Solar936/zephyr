@@ -287,6 +287,20 @@ enum i2s_trigger_cmd {
 	I2S_TRIGGER_PREPARE,
 };
 
+// ZGMICRO Start
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+typedef enum {
+	I2S_TX_DONE,
+	I2S_RX_DONE,
+	I2S_TX_ERROR,
+	I2S_RX_ERROR,
+} i2s_event_t;
+
+typedef void (*i2s_callback_t)(const struct device *dev, void *user_data,
+			  i2s_event_t evt, enum i2s_state state);
+#endif // CONFIG_SOC_FAMILY_ZGMICRO_WS
+// ZGMICRO End
+
 /** @struct i2s_config
  * @brief Interface configuration options.
  *
@@ -321,6 +335,15 @@ struct i2s_config {
 	 * is full or RX queue is empty, or 0, or SYS_FOREVER_MS.
 	 */
 	int32_t timeout;
+
+// ZGMICRO Start
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+	/** Optional attached user data for callbacks */
+	void *user_data;
+	/** Optional callback for completion and error events */
+	i2s_callback_t i2s_callback;
+#endif // CONFIG_SOC_FAMILY_ZGMICRO_WS
+// ZGMICRO End
 };
 
 /**
