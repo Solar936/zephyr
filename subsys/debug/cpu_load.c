@@ -25,6 +25,20 @@ static uint64_t ticks_idle;
 static cpu_load_cb_t load_cb;
 static uint8_t cpu_load_threshold_percent;
 
+// ZGMICRO Start
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+static void cpu_load_log_fn(struct k_timer *dummy)
+{
+	int load = cpu_load_get(true);
+	uint32_t percent = load / 10;
+	uint32_t fraction = load % 10;
+
+	LOG_INF("Load:%d.%d%%", percent, fraction);
+	if (load_cb != NULL && percent >= cpu_load_threshold_percent) {
+		load_cb(percent);
+	}
+}
+#else
 static void cpu_load_log_fn(struct k_timer *dummy)
 {
 	int load = cpu_load_get(true);
@@ -36,6 +50,8 @@ static void cpu_load_log_fn(struct k_timer *dummy)
 		load_cb(percent);
 	}
 }
+#endif // CONFIG_SOC_FAMILY_ZGMICRO_WS
+// ZGMICRO End
 
 K_TIMER_DEFINE(cpu_load_timer, cpu_load_log_fn, NULL);
 
@@ -95,6 +111,35 @@ void cpu_load_on_enter_idle(void)
 	enter_ts = k_cycle_get_32();
 }
 
+// ZGMICRO Start
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+void cpu_load_on_exit_idle(void)
+{
+	uint32_t now;
+
+	if (IS_ENABLED(CONFIG_CPU_LOAD_USE_COUNTER)) {
+		counter_get_value(counter, &now);
+		if (counter_is_counting_up(counter)){
+			if (now < enter_ts) {
+				ticks_idle += counter_get_top_value(counter) - enter_ts + now;
+			} else {
+				ticks_idle += now - enter_ts;
+			}
+		} else {
+			if (now > enter_ts) {
+				ticks_idle += counter_get_top_value(counter) - now + enter_ts;
+			} else {
+				ticks_idle += enter_ts - now;
+			}
+		}
+	} else {
+		now = k_cycle_get_32();
+		ticks_idle += now - enter_ts;
+	}
+}
+
+#else
+
 void cpu_load_on_exit_idle(void)
 {
 	uint32_t now;
@@ -107,6 +152,8 @@ void cpu_load_on_exit_idle(void)
 
 	ticks_idle += now - enter_ts;
 }
+#endif // CONFIG_SOC_FAMILY_ZGMICRO_WS
+// ZGMICRO End
 
 int cpu_load_get(bool reset)
 {
