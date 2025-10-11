@@ -16,6 +16,16 @@ static inline int z_vrfy_led_blink(const struct device *dev, uint32_t led,
 }
 #include <zephyr/syscalls/led_blink_mrsh.c>
 
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+static inline int z_vrfy_led_set_blink_seqs(const struct device *dev, uint32_t led,
+				   unsigned char *arr, uint32_t blink_time, led_end_func_t end_func)
+{
+	K_OOPS(K_SYSCALL_DRIVER_LED(dev, set_blink_seqs));
+	return z_impl_led_set_blink_seqs((const struct device *)dev, led, arr, blink_time, end_func);
+}
+#include <zephyr/syscalls/led_set_blink_seqs_mrsh.c>
+#endif
+
 static inline int z_vrfy_led_get_info(const struct device *dev, uint32_t led,
 				      const struct led_info **info)
 {

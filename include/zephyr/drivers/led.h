@@ -61,6 +61,18 @@ struct led_info {
 typedef int (*led_api_blink)(const struct device *dev, uint32_t led,
 			     uint32_t delay_on, uint32_t delay_off);
 
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+typedef void (*led_end_func_t)(void);
+/**
+ * @typedef led_api_set_blink_seqs()
+ * @brief Callback API for setting LED blink sequences
+ *
+ * @see led_set_blink_seqs() for argument descriptions.
+ */
+typedef int (*led_api_set_blink_seqs)(const struct device *dev, uint32_t led,
+				unsigned char *arr, uint32_t blink_time, led_end_func_t end_func);
+#endif
+
 /**
  * @typedef led_api_get_info()
  * @brief Optional API callback to get LED information
@@ -127,6 +139,9 @@ __subsystem struct led_driver_api {
 	led_api_get_info get_info;
 	led_api_set_color set_color;
 	led_api_write_channels write_channels;
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+	led_api_set_blink_seqs set_blink_seqs;
+#endif
 };
 
 /**
@@ -155,7 +170,35 @@ static inline int z_impl_led_blink(const struct device *dev, uint32_t led,
 	}
 	return api->blink(dev, led, delay_on, delay_off);
 }
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+/**
+ * @brief Set blink sequence on an LED
+ *
+ * This optional routine starts blinking a LED sequence with the given time
+ *
+ * @param dev LED device
+ * @param led LED number
+ * @param arr Array of blinking sequences
+*             Format: { B,500,500,1000,1000,1000,500 }
+ * @param blink_time Time period (in milliseconds) an LED, 0xffffffff or 0 means forever
+ * @param end_func Function pointer called when the blink sequence ends
+ * @return 0 on success, negative on error
+ */
+__syscall int led_set_blink_seqs(const struct device *dev, uint32_t led,
+			    unsigned char *arr, uint32_t blink_time, led_end_func_t end_func);
 
+static inline int z_impl_led_set_blink_seqs(const struct device *dev, uint32_t led,
+				   unsigned char *arr, uint32_t blink_time, led_end_func_t end_func)
+{
+	const struct led_driver_api *api =
+		(const struct led_driver_api *)dev->api;
+
+	if (api->set_blink_seqs == NULL) {
+		return -ENOSYS;
+	}
+	return api->set_blink_seqs(dev, led, arr, blink_time, end_func);
+}
+#endif
 /**
  * @brief Get LED information
  *
