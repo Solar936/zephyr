@@ -1520,6 +1520,30 @@ static inline int i2c_write_read(const struct device *dev, uint16_t addr,
 	return i2c_transfer(dev, msg, 2, addr);
 }
 
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+static inline int i2c_write_read_custom(const struct device *dev, uint16_t addr,
+				 const void *write_buf, size_t num_write,
+				 void *read_buf, size_t num_read)
+{
+	struct i2c_msg msg[2];
+
+	msg[0].buf = (uint8_t *)write_buf;
+	msg[0].len = num_write;
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = (uint8_t *)read_buf;
+	msg[1].len = num_read;
+	msg[1].flags = I2C_MSG_READ | I2C_MSG_STOP;
+
+	// bit 15置1表示发送的从机地址是读写地址，而不是纯粹的设备地址
+	// bit 0强制写1，表示即使是write，也发read地址
+	// 在调试mpw2 8658 bootup流程时需要上述操作
+	addr = (addr << 1) | BIT(0) | BIT(15);
+
+	return i2c_transfer(dev, msg, 2, addr);
+}
+#endif
+
 /**
  * @brief Write then read data from an I2C device.
  *

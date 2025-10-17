@@ -245,6 +245,11 @@ int i2c_bitbang_transfer(struct i2c_bitbang *context,
 			unsigned int byte0 = slave_address << 1;
 
 			byte0 |= (flags & I2C_MSG_RW_MASK) == I2C_MSG_READ;
+		#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+			if (slave_address & BIT(15)) {
+				byte0 = slave_address & ~BIT(15);
+			}
+		#endif
 			if (!i2c_write_byte(context, byte0)) {
 				goto finish; /* No ACK received */
 			}
