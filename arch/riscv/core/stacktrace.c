@@ -200,6 +200,11 @@ static void walk_stackframe(riscv_stacktrace_cb cb, void *cookie, const struct k
 	}
 
 	ksp = (uintptr_t *)sp;
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+#define STACK_BUFFER_LEN (100)
+	char buffer[STACK_BUFFER_LEN];
+	int offset = 0;
+#endif
 	for (int i = 0; (i < MAX_STACK_FRAMES) && vrfy((uintptr_t)ksp, thread, esf) &&
 			((uintptr_t)ksp > last_ksp);) {
 		if (in_text_region(ra)) {
@@ -210,13 +215,22 @@ static void walk_stackframe(riscv_stacktrace_cb cb, void *cookie, const struct k
 			 * Increment the iterator only if `ra` is within the text region to get the
 			 * most out of it
 			 */
+			#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+			if(offset <= STACK_BUFFER_LEN) {
+				offset += snprintf(buffer + offset, STACK_BUFFER_LEN - offset, "%lx ", ra);
+			}
+			#endif
 			i++;
 		}
 		last_ksp = (uintptr_t)ksp;
 		/* Unwind to the previous frame */
 		ra = ((struct arch_esf *)ksp++)->ra;
 	}
+	#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+	LOG_ERR("\naddr2line -e %s -a -f %s\n", "zephyr.elf", buffer);
+	#endif
 }
+
 #endif /* CONFIG_FRAME_POINTER */
 
 void arch_stack_walk(stack_trace_callback_fn callback_fn, void *cookie,
