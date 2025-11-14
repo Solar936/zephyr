@@ -8,6 +8,7 @@
 #include <zephyr/kernel.h>
 #include "heap.h"
 
+#if !CONFIG_HEAP_INFO_DEBUG
 int sys_heap_runtime_stats_get(struct sys_heap *heap,
 		struct sys_memory_stats *stats)
 {
@@ -32,3 +33,4 @@ int sys_heap_runtime_stats_reset_max(struct sys_heap *heap)
 
 	return 0;
 }
+#endif

@@ -27,12 +27,13 @@ static uint8_t cpu_load_threshold_percent;
 
 // ZGMICRO Start
 #if CONFIG_SOC_FAMILY_ZGMICRO_WS
+IF_ENABLED(CONFIG_DEBUG_INFO_DEBUG, (volatile uint32_t cpu_load_val = 0));
 static void cpu_load_log_fn(struct k_timer *dummy)
 {
 	int load = cpu_load_get(true);
 	uint32_t percent = load / 10;
 	uint32_t fraction = load % 10;
-
+	IF_ENABLED(CONFIG_DEBUG_INFO_DEBUG, (cpu_load_val = load*10));
 	LOG_INF("Load:%d.%d%%", percent, fraction);
 	if (load_cb != NULL && percent >= cpu_load_threshold_percent) {
 		load_cb(percent);

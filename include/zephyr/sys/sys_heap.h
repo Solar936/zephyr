@@ -231,6 +231,91 @@ size_t sys_heap_usable_size(struct sys_heap *heap, void *mem);
  * @param heap Heap to validate
  * @return true, if the heap is valid, otherwise false
  */
+
+#if CONFIG_HEAP_INFO_DEBUG
+void sys_heap_info_set_owner(void *p_addr, uint32_t lr);
+void sys_heap_info_set_arg(void *p_addr, uint8_t arg);
+size_t sys_heap_info_get_size(void *p_addr);
+
+
+/**
+ * @brief 设置内存块的所有者信息
+ *
+ * 该宏用于为动态分配的内存块设置所有者标识，便于内存管理和调试追踪。
+ * 它会检查指针有效性，然后将当前调用地址作为所有者标识记录到内存块的元数据中。
+ *
+ * @note 实现原理：
+ * 1. 内存分配器通常会在分配的内存块前面存储管理元数据
+ * 2. 此宏通过指针算术访问内存块的元数据区域
+ * 3. 使用 `__builtin_return_address(0)` 获取调用者地址作为所有者标识
+ *
+ * @warning 使用限制：
+ * - 仅适用于通过内核内存分配器分配的内存块
+ * - 必须在分配后立即设置所有者，避免指针偏移失效
+ * - 所有权信息主要用于调试目的，不应用于运行时权限检查
+ *
+ * @param ptr 指向已分配内存块的指针：
+ *            - NULL指针会被安全处理，不会导致崩溃
+ *            - 非NULL指针会指向有效内存块的元数据前缀
+ */
+#define sys_heap_set_owner(ptr) sys_heap_info_set_owner(ptr, (uintptr_t)__builtin_return_address(0))
+
+/**
+ * @brief 设置内存块的附加参数
+ *
+ * 该宏用于为动态分配的内存块设置附加元数据，便于运行时调试和分析。
+ * 它将指定的参数值存储在内存块的元数据区域，供后续的内存管理工具使用。
+ *
+ * @note 功能特点：
+ * - 与所有权追踪功能协同工作，提供额外的调试信息
+ * - 支持任意字节数据（8位无符号整数）作为参数
+ * - 通过指针算术访问内存块的元数据前缀
+ * - 自动处理空指针情况，避免崩溃
+ *
+ * @warning 使用限制：
+ * - 仅适用于通过内核内存分配器分配的内存块
+ * - 必须在分配后立即设置，避免指针偏移失效
+ * - 参数值在内存释放后仍可被读取，但已无实际意义
+ *
+ * @param ptr 指向已分配内存块的指针：
+ *            - NULL指针会被安全处理，不会导致崩溃
+ *            - 非NULL指针会指向有效内存块的元数据前缀
+ * @param arg 要设置的附加参数值（0-255范围内的无符号整数）
+ */
+#define sys_heap_set_arg(ptr, arg) sys_heap_info_set_arg(ptr, arg)
+
+/**
+ * @brief 获取已分配内存块的大小
+ *
+ * 该宏用于查询动态分配内存块的实际大小，包括内存分配器添加的元数据开销。
+ * 它通过访问内存块的元数据区域，返回内存块的总大小（以字节为单位）。
+ *
+ * @note 实现原理：
+ * - 内存分配器在实际数据前面存储管理元数据
+ * - 此宏通过指针算术访问内存块的元数据前缀
+ * - 返回值包括用户请求的大小和分配器添加的元数据
+ *
+ * @warning 使用限制：
+ * - 仅适用于通过内核内存分配器分配的内存块
+ * - 必须在内存释放前调用，避免访问无效内存
+ * - 空指针会被安全处理，返回0
+ *
+ * @param ptr 指向已分配内存块的指针：
+ *            - NULL指针返回0
+ *            - 非NULL指针必须指向有效内存块的起始位置
+ *
+ * @return 返回内存块的总大小（字节）：
+ *         - 成功时：返回实际分配的内存块大小（包括元数据）
+ *         - 失败时：返回0（如空指针或无效指针）
+ */
+#define sys_heap_get_size(ptr)     sys_heap_info_get_size(ptr)
+
+#else
+#define sys_heap_set_owner(ptr)
+#define sys_heap_set_arg(ptr, arg)
+#define sys_heap_get_size(ptr)
+#endif
+
 #ifdef CONFIG_SYS_HEAP_VALIDATE
 bool sys_heap_validate(struct sys_heap *heap);
 #else

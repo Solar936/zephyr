@@ -12,6 +12,11 @@
 #include "heap.h"
 
 LOG_MODULE_REGISTER(os_heap, CONFIG_SYS_HEAP_LOG_LEVEL);
+
+#if CONFIG_HEAP_INFO_DEBUG
+#include "lib/utils/heap/heap_info.h"
+#endif
+
 #ifdef CONFIG_MSAN
 #include <sanitizer/msan_interface.h>
 #endif
@@ -278,6 +283,8 @@ void sys_heap_free(struct sys_heap *heap, void *mem)
 	if (mem == NULL) {
 		return; /* ISO C free() semantics */
 	}
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (mem = sys_heap_info_free_front(mem)));
+
 	struct z_heap *h = heap->heap;
 	chunkid_t c = mem_to_chunkid(h, mem);
 
@@ -341,6 +348,7 @@ void sys_heap_free(struct sys_heap *heap, void *mem)
 #endif
 
 	free_chunk(h, c);
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_free_back(mem)));
 }
 
 size_t sys_heap_usable_size(struct sys_heap *heap, void *mem)
@@ -423,10 +431,13 @@ void *sys_heap_alloc(struct sys_heap *heap, size_t bytes)
 		return NULL;
 	}
 
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (bytes = sys_heap_info_alloc_front(bytes)));
+
 	chunksz_t chunk_sz = bytes_to_chunksz(h, bytes, 0);
 	chunkid_t c = alloc_chunk(h, chunk_sz);
 
 	if (c == 0U) {
+		IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_alloc_fail(heap->heap, bytes)));
 		return NULL;
 	}
 
@@ -451,7 +462,7 @@ void *sys_heap_alloc(struct sys_heap *heap, size_t bytes)
 	heap_listener_notify_alloc(HEAP_ID_FROM_POINTER(heap), mem,
 				   chunk_usable_bytes(h, c));
 #endif
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (mem = sys_heap_info_alloc_back(mem, bytes)));
 	IF_ENABLED(CONFIG_MSAN, (__msan_allocated_memory(mem, bytes)));
 	return mem;
 }
@@ -491,7 +502,7 @@ void *sys_heap_aligned_alloc(struct sys_heap *heap, size_t align, size_t bytes)
 	if (bytes == 0) {
 		return NULL;
 	}
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (bytes = sys_heap_info_alloc_front(bytes)));
 	/*
 	 * Find a free block that is guaranteed to fit.
 	 * We over-allocate to account for alignment and then free
@@ -501,12 +512,15 @@ void *sys_heap_aligned_alloc(struct sys_heap *heap, size_t align, size_t bytes)
 	chunkid_t c0 = alloc_chunk(h, padded_sz);
 
 	if (c0 == 0) {
+		IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_alloc_fail(heap->heap, bytes)));
 		return NULL;
 	}
 	uint8_t *mem = chunk_mem(h, c0);
 
 	/* Align allocated memory */
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (mem = sys_heap_info_UserDataPtr(mem)));
 	mem = (uint8_t *) ROUND_UP(mem + rew, align) - rew;
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (mem = sys_heap_info_BlockPtr(mem)));
 	chunk_unit_t *end = (chunk_unit_t *) ROUND_UP(mem + bytes, CHUNK_UNIT);
 
 	/* Get corresponding chunks */
@@ -539,7 +553,7 @@ void *sys_heap_aligned_alloc(struct sys_heap *heap, size_t align, size_t bytes)
 	heap_listener_notify_alloc(HEAP_ID_FROM_POINTER(heap), mem,
 				   chunk_usable_bytes(h, c) - mem_align_gap(h, mem));
 #endif
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (mem = sys_heap_info_alloc_back(mem, bytes)));
 	IF_ENABLED(CONFIG_MSAN, (__msan_allocated_memory(mem, bytes)));
 	return mem;
 }
@@ -547,6 +561,9 @@ void *sys_heap_aligned_alloc(struct sys_heap *heap, size_t align, size_t bytes)
 static bool inplace_realloc(struct sys_heap *heap, void *ptr, size_t bytes)
 {
 	struct z_heap *h = heap->heap;
+
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (ptr = sys_heap_info_BlockPtr(ptr)));
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (bytes = sys_heap_info_alloc_front(bytes)));
 
 	chunkid_t c = mem_to_chunkid(h, ptr);
 	size_t align_gap = mem_align_gap(h, ptr);
@@ -577,6 +594,7 @@ static bool inplace_realloc(struct sys_heap *heap, void *ptr, size_t bytes)
 
 	if (chunk_size(h, c) == chunks_need) {
 		/* We're good already */
+		IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_alloc_back(ptr, bytes)));
 		return true;
 	}
 
@@ -616,7 +634,7 @@ static bool inplace_realloc(struct sys_heap *heap, void *ptr, size_t bytes)
 		heap_listener_notify_free(HEAP_ID_FROM_POINTER(heap), ptr,
 					  bytes_freed);
 #endif
-
+		IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_alloc_back(ptr, bytes)));
 		return true;
 	}
 
@@ -655,7 +673,7 @@ static bool inplace_realloc(struct sys_heap *heap, void *ptr, size_t bytes)
 		heap_listener_notify_free(HEAP_ID_FROM_POINTER(heap), ptr,
 					  bytes_freed);
 #endif
-
+		IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_alloc_back(ptr, bytes)));
 		return true;
 	}
 

@@ -10,6 +10,26 @@
 #include <zephyr/sys/util.h>
 #include <kernel_internal.h>
 
+
+#if CONFIG_HEAP_CHUNK
+#if CONFIG_HEAP_INFO_DEBUG
+#include "lib/utils/heap/heap_info.h"
+static inline void k_malloc_info_set_owner(void *p_addr, uint32_t lr)
+{
+	if (p_addr != NULL) {
+		_sys_heap_info_set_owner((struct k_heap **)p_addr - 1, lr);
+		_sys_heap_info_set_type((struct k_heap **)p_addr - 1, HEAP_TYPE_H_OFFSET|HEAP_TYPE_L_MEM);
+	}
+}
+
+static inline void k_thread_info_set_owner(void *p_addr, uint32_t lr)
+{
+	if (p_addr != NULL) {
+		_sys_heap_info_set_owner((struct k_heap **)p_addr - 1, lr);
+		_sys_heap_info_set_type((struct k_heap **)p_addr - 1, HEAP_TYPE_H_OFFSET|HEAP_TYPE_L_THREAD);
+	}
+}
+#endif
 typedef void * (sys_heap_allocator_t)(struct sys_heap *heap, size_t align, size_t bytes);
 
 static void *z_alloc_helper(struct k_heap *heap, size_t align, size_t size,
@@ -99,7 +119,7 @@ void *k_aligned_alloc(size_t align, size_t size)
 	void *ret = z_alloc_helper(_SYSTEM_HEAP, align, size, sys_heap_aligned_alloc);
 
 	SYS_PORT_TRACING_OBJ_FUNC_EXIT(k_heap_sys, k_aligned_alloc, _SYSTEM_HEAP, ret);
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (k_malloc_info_set_owner(ret, (uintptr_t)__builtin_return_address(0))));
 	return ret;
 }
 
@@ -110,7 +130,7 @@ void *k_malloc(size_t size)
 	void *ret = z_alloc_helper(_SYSTEM_HEAP, 0, size, sys_heap_noalign_alloc);
 
 	SYS_PORT_TRACING_OBJ_FUNC_EXIT(k_heap_sys, k_malloc, _SYSTEM_HEAP, ret);
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (k_malloc_info_set_owner(ret, (uintptr_t)__builtin_return_address(0))));
 	return ret;
 }
 
@@ -133,7 +153,7 @@ void *k_calloc(size_t nmemb, size_t size)
 	}
 
 	SYS_PORT_TRACING_OBJ_FUNC_EXIT(k_heap_sys, k_calloc, _SYSTEM_HEAP, ret);
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (k_malloc_info_set_owner(ret, (uintptr_t)__builtin_return_address(0))));
 	return ret;
 }
 
@@ -175,7 +195,7 @@ void *k_realloc(void *ptr, size_t size)
 	}
 
 	SYS_PORT_TRACING_OBJ_FUNC_EXIT(k_heap_sys, k_realloc, heap, ptr, ret);
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (k_malloc_info_set_owner(ret, (uintptr_t)__builtin_return_address(0))));
 	return ret;
 }
 
@@ -204,7 +224,7 @@ static void *z_thread_alloc_helper(size_t align, size_t size,
 	} else {
 		ret = NULL;
 	}
-
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (k_thread_info_set_owner(ret, (uintptr_t)__builtin_return_address(0))));
 	return ret;
 }
 
@@ -217,3 +237,4 @@ void *z_thread_malloc(size_t size)
 {
 	return z_thread_alloc_helper(0, size, sys_heap_noalign_alloc);
 }
+#endif
