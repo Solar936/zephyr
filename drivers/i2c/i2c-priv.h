@@ -35,6 +35,10 @@ static inline uint32_t i2c_map_dt_bitrate(uint32_t bitrate)
 		return I2C_SPEED_HIGH << I2C_SPEED_SHIFT;
 	case I2C_BITRATE_ULTRA:
 		return I2C_SPEED_ULTRA << I2C_SPEED_SHIFT;
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	default:
+		return I2C_SPEED_DT << I2C_SPEED_SHIFT;
+#endif
 	}
 
 	return 0;

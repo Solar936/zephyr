@@ -34,6 +34,9 @@ struct i2c_bitbang {
 	void				*io_context;
 	uint32_t			delays[2];
 	uint32_t			dev_config;
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	uint32_t			bitrate;
+#endif
 };
 
 /**

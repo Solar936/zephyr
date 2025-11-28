@@ -205,6 +205,9 @@ static int i2c_gpio_init(const struct device *dev)
 	}
 
 	i2c_bitbang_init(&context->bitbang, &io_fns, (void *)config);
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	context->bitbang.bitrate = config->bitrate;
+#endif
 
 	bitrate_cfg = i2c_map_dt_bitrate(config->bitrate);
 	err = i2c_bitbang_configure(&context->bitbang,

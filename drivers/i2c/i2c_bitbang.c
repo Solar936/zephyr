@@ -57,6 +57,24 @@ int i2c_bitbang_configure(struct i2c_bitbang *context, uint32_t dev_config)
 		context->delays[T_LOW]  = NS_TO_SYS_CLOCK_HW_CYCLES(1300);
 		context->delays[T_HIGH] = NS_TO_SYS_CLOCK_HW_CYCLES(600);
 		break;
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	case I2C_SPEED_DT:
+		{
+			uint32_t t_low_ns = 0, t_high_ns = 0;
+			uint32_t bitrate = context->bitrate;
+			if (bitrate == 0) {
+				return -EINVAL;
+			}
+			// 10% used for rise/fall time and setup/hold time
+			// low = 50% clock period
+			// high = 40% clock period
+			t_low_ns = 1000000000U / bitrate / 2U;
+			t_high_ns = 1000000000U / bitrate * 2U / 5U;
+			context->delays[T_LOW]  = NS_TO_SYS_CLOCK_HW_CYCLES(t_low_ns);
+			context->delays[T_HIGH] = NS_TO_SYS_CLOCK_HW_CYCLES(t_high_ns);
+		}
+		break;
+#endif
 	default:
 		return -ENOTSUP;
 	}
