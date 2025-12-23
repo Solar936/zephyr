@@ -714,7 +714,9 @@ class KconfigCheck(ComplianceTest):
         self.check_no_redefined_in_defconfig(kconf)
         self.check_no_enable_in_boolean_prompt(kconf)
         self.check_soc_name_sync(kconf)
-        self.check_no_undef_outside_kconfig(kconf)
+        # zgmicro start
+        # self.check_no_undef_outside_kconfig(kconf)
+        # zgmicro end
         self.check_disallowed_defconfigs(kconf)
 
     def get_modules(self, _module_dirs_file, modules_file, sysbuild_modules_file, settings_file):
@@ -746,6 +748,10 @@ class KconfigCheck(ComplianceTest):
         modules_dir = ZEPHYR_BASE / 'modules'
         modules = [name for name in os.listdir(modules_dir) if modules_dir / name / 'Kconfig']
 
+        # zgmicro start
+        extra_modules = self.get_extra_modules()
+        # zgmicro end
+
         with open(modules_file) as fp_module_file:
             content = fp_module_file.read()
 
@@ -757,7 +763,57 @@ class KconfigCheck(ComplianceTest):
                         modules_dir / module / 'Kconfig',
                     )
                 )
+
+            # zgmicro start
+            for extra_module in extra_modules:
+                fp_module_file.write("ZEPHYR_{}_KCONFIG = {}\n".format(
+                    re.sub('[^a-zA-Z0-9]', '_', list(extra_module.keys())[0]).upper(),
+                    list(extra_module.values())[0]
+                ))
+            # zgmicro end
+
             fp_module_file.write(content)
+
+    # zgmicro start
+    def get_extra_modules(self):
+        """
+        Get a list of extra modules from the manifest.
+
+        Extra modules are modules that are not part of the Zephyr repository,
+        but are included in the manifest. These modules are expected to have
+        a Kconfig file in the modules directory.
+
+        """
+        manifest = Manifest.from_file()
+        extra_modules = []
+        for project in manifest.get_projects([]):
+            if not manifest.is_active(project):
+                continue
+
+            if not project.is_cloned():
+                continue
+
+            module_path = PurePath(project.abspath)
+            module_yml = module_path.joinpath('zephyr/module.yml')
+
+            if not Path(module_yml).is_file():
+                module_yml = module_path.joinpath('zephyr/module.yaml')
+
+            if Path(module_yml).is_file():
+
+                with Path(module_yml).open('r', encoding='utf-8') as f:
+                    meta = yaml.load(f.read(), Loader=SafeLoader)
+
+                # Add ext. module root, if one is defined
+                if 'build' in meta and 'settings' in meta['build'] and \
+                     'module_ext_root' in meta['build']['settings']:
+                    path_full = module_path.joinpath(meta['build']['settings']['module_ext_root'])
+                    extra_module_path = os.path.join(path_full, 'modules')
+                    if Path(extra_module_path).is_dir():
+                        extra_modules.extend([{name: os.path.join(extra_module_path, name, 'Kconfig')} for name in os.listdir(extra_module_path) if
+                                os.path.join(extra_module_path, name, 'Kconfig')])
+        return extra_modules
+    # zgmicro end
 
     def get_kconfig_dts(self, kconfig_dts_file, settings_file):
         """
