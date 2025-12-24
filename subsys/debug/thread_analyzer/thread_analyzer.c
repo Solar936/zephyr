@@ -220,6 +220,15 @@ static void thread_analyze_cb(const struct k_thread *cthread, void *user_data)
 	}
 
 	if (ret == 0) {
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	#if CONFIG_THREAD_ANALYZER_RESET_PER_INTERVAL
+			/* If the thread analyzer is configured to reset the stats
+			* after each interval, we need to calculate the execution cycles
+			* based on the configured interval and the system HW clock cycles per second.
+			*/
+			rt_stats_all.execution_cycles = (uint64_t)(CONFIG_THREAD_ANALYZER_AUTO_INTERVAL * CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC) ;
+	#endif
+#endif
 		info.utilization = (info.usage.execution_cycles * 100U) /
 			rt_stats_all.execution_cycles;
 	}
@@ -228,6 +237,11 @@ static void thread_analyze_cb(const struct k_thread *cthread, void *user_data)
 	ARG_UNUSED(ret);
 
 	cb(&info);
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+	#if CONFIG_THREAD_ANALYZER_RESET_PER_INTERVAL
+		k_obj_core_stats_reset(K_OBJ_CORE(thread));
+	#endif
+#endif
 
 #ifdef CONFIG_THREAD_ANALYZER_LONG_FRAME_PER_INTERVAL
 	k_thread_runtime_stats_longest_frame_reset(thread);

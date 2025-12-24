@@ -32,6 +32,15 @@ config THREAD_ANALYZER_USE_LOG
 	select LOG
 	help
 	  Use logger output to print thread information.
+#CONFIG_SOC_FAMILY_ZGMICRO_WS
+config THREAD_ANALYZER_RESET_PER_INTERVAL
+	bool "Resets the thread analyzer since the last thread analyzer interval"
+	select OBJ_CORE
+	select OBJ_CORE_STATS
+	select OBJ_CORE_STATS_THREAD
+	help
+	  Resets the thread analyzer.
+#CONFIG_SOC_FAMILY_ZGMICRO_WS
 
 config THREAD_ANALYZER_USE_PRINTK
 	bool "Use printk function"
