@@ -127,11 +127,19 @@ int ipc_static_vrings_init(struct ipc_static_vrings *vr, unsigned int role)
 	if (err != 0) {
 		return err;
 	}
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS && CONFIG_IPC_SERVICE_BACKEND_RPMSG_SHARED_ADDRESS_DIFFERENT
 
+	uint8_t page_shift = 32 - __builtin_clz(vr->shm_size);
+	vr->shm_physmap[0] = vr->shm_addr & ~((1UL << page_shift) - 1UL);
+	metal_io_init(&vr->shm_io, (void *)vr->shm_addr,
+		      vr->shm_physmap, vr->shm_size, page_shift, 0, &vr->shm_io.ops);
+#else
 	vr->shm_physmap[0] = vr->shm_addr;
-
 	metal_io_init(&vr->shm_io, (void *)vr->shm_addr,
 		      vr->shm_physmap, vr->shm_size, -1, 0, NULL);
+#endif
+
+
 
 	return vq_setup(vr, role);
 }

@@ -560,6 +560,49 @@ static int send_nocopy(const struct device *instance, void *token,
 
 	return rpmsg_send_nocopy(&rpmsg_ept->ep, msg, len);
 }
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS && CONFIG_IPC_SERVICE_BACKEND_RPMSG_SHARED_ADDRESS_DIFFERENT
+/**
+ * @brief Translates a physical address to an offset within an I/O region.
+ *
+ * This function first attempts to translate the physical address using the
+ * driver's address map. If no valid mapping is found, it falls back to the
+ * device address map.
+ *
+ * @param io Pointer to the I/O region.
+ * @param phys Physical address to translate.
+ *
+ * @return offset if valid, otherwise METAL_BAD_OFFSET.
+ */
+static unsigned long translate_phys_to_offset(struct metal_io_region *io,
+					      metal_phys_addr_t phys)
+{
+	unsigned long offset =
+		(io->page_mask == (metal_phys_addr_t)(-1) ?
+		phys - io->physmap[0] :  phys & io->page_mask);
+        //不去验证是否等于phys，直接返回offset
+	//这样修改之后，对于非连续地址多page的情况不支持, 对于下面这种情况
+	// 虚拟地址空间（连续）          物理地址空间（不连续）
+	// ┌─────────────┐              ┌─────────────┐
+	// │   Page 0    │ ───────────► │ 0x10000000  │
+	// ├─────────────┤              └─────────────┘
+	// │   Page 1    │ ───────────► ┌─────────────┐
+	// ├─────────────┤              │ 0x20004000  │
+	// │   Page 2    │ ───────────► └─────────────┘
+	// └─────────────┘              ┌─────────────┐
+	//                              │ 0x30008000  │
+	//                              └─────────────┘
+	// do {
+	// 	if (metal_io_phys(io, offset) == phys)
+	// 		return offset;
+	// 	offset += io->page_mask + 1;
+	// } while (offset < io->size);
+	if(offset < io->size)
+	{
+		return offset;
+	}
+	return METAL_BAD_OFFSET;
+}
+#endif
 
 static int open(const struct device *instance)
 {
@@ -580,6 +623,10 @@ static int open(const struct device *instance)
 
 	data->vr.notify_cb = virtio_notify_cb;
 	data->vr.priv = (void *) conf;
+
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS && CONFIG_IPC_SERVICE_BACKEND_RPMSG_SHARED_ADDRESS_DIFFERENT
+	data->vr.shm_io.ops.phys_to_offset = translate_phys_to_offset;
+#endif
 
 	err = ipc_static_vrings_init(&data->vr, conf->role);
 	if (err != 0) {
