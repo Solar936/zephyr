@@ -114,6 +114,16 @@ config LOG_DOMAIN_NAME_PREFIX
 	help
 		Enable support for prefixing the log source with the domain name.
 
+#CONFIG_SOC_FAMILY_ZGMICRO_WS
+config LOG_DICTIONARY_MAGIC_HEADER
+	bool "Dictionary log magic header"
+	depends on LOG_DICTIONARY_SUPPORT
+	help
+	  Enable magic header for dictionary based logging output.
+	  When enabled, a magic header will be prepended to the log output
+	  to help identify dictionary-based log streams.
+#CONFIG_SOC_FAMILY_ZGMICRO_WS
+
 config LOG_THREAD_ID_PREFIX
 	bool "Thread ID prefix"
 	help

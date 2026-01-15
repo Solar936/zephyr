@@ -12,11 +12,26 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util.h>
 
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+#if CONFIG_LOG_DICTIONARY_MAGIC_HEADER
+#define LOG_MAGIC_NUMBER	0x21474F4CU
+#endif
+#endif
+
 void log_dict_output_msg_process(const struct log_output *output,
 				 struct log_msg *msg, uint32_t flags)
 {
 	struct log_dict_output_normal_msg_hdr_t output_hdr;
 	void *source = (void *)log_msg_get_source(msg);
+
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+#if CONFIG_LOG_DICTIONARY_MAGIC_HEADER
+	/* 确保在日志数据流出错时，能够通过magic number重新同步 */
+	uint32_t magic = LOG_MAGIC_NUMBER;
+	log_output_write(output->func, (uint8_t *)&magic, sizeof(magic),
+			 (void *)output->control_block->ctx);
+#endif
+#endif
 
 	/* Keep sync with header in struct log_msg */
 	output_hdr.type = MSG_NORMAL;
@@ -50,6 +65,14 @@ void log_dict_output_dropped_process(const struct log_output *output, uint32_t c
 {
 	struct log_dict_output_dropped_msg_t msg;
 
+#if defined(CONFIG_SOC_FAMILY_ZGMICRO_WS)
+#if CONFIG_LOG_DICTIONARY_MAGIC_HEADER
+	/* 确保在日志数据流出错时，能够通过magic number重新同步 */
+	uint32_t magic = LOG_MAGIC_NUMBER;
+	log_output_write(output->func, (uint8_t *)&magic, sizeof(magic),
+			 (void *)output->control_block->ctx);
+#endif
+#endif
 	msg.type = MSG_DROPPED_MSG;
 	msg.num_dropped_messages = MIN(cnt, 9999);
 
