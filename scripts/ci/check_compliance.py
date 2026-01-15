@@ -418,12 +418,84 @@ class ClangFormatCheck(ComplianceTest):
                 desc=f'\r\n{msg}',
             )
 
+    # zgmicro start
+    def __is_file_excluded(self, file_path):
+        """
+        Check if a file should be excluded based on .clang-format-ignore files.
+        """
+        abs_file_path = GIT_TOP / file_path
+        current_dir = abs_file_path.parent
+        # 遍历所有父目录，查找.clang-format-ignore文件
+        while True:
+            ignore_file_path = current_dir / ".clang-format-ignore"
+            if ignore_file_path.exists():
+                try:
+                    with open(ignore_file_path, 'r') as f:
+                        lines = f.readlines()
+
+                    # 处理每一行规则
+                    for line in lines:
+                        # 去除空白和换行符
+                        line = line.strip()
+
+                        # 跳过空行和注释行
+                        if not line or line.startswith('#'):
+                            continue
+
+                        # 获取忽略规则相对于.clang-format-ignore文件所在目录的路径
+                        ignore_dir_rel = ignore_file_path.relative_to(GIT_TOP)
+                        ignore_dir = ignore_dir_rel.parent
+
+                        # 构建完整的忽略路径模式
+                        if line.startswith('/'):
+                            # 如果规则以/开头，则是相对于根目录的路径
+                            ignore_pattern = line[1:]
+                        else:
+                            # 否则是相对于.clang-format-ignore文件所在目录的路径
+                            ignore_pattern = os.path.join(ignore_dir, line).replace('\\', '/')
+
+                        # 将glob模式转换为正则表达式
+                        regex_pattern = ignore_pattern.replace('.', '\\.')
+                        regex_pattern = regex_pattern.replace('*', '.*')
+                        regex_pattern = regex_pattern.replace('?', '.')
+
+                        # 如果规则以/结尾，则匹配目录
+                        if ignore_pattern.endswith('/'):
+                            regex_pattern = '^' + regex_pattern + '.*'
+                        else:
+                            # 否则匹配文件或目录
+                            regex_pattern = '^' + regex_pattern + '(/.*)?$'
+
+                        # 检查文件是否匹配忽略规则
+                        if re.match(regex_pattern, str(file_path).replace('\\', '/')):
+                            return True
+
+                except Exception as e:
+                    # 如果读取文件出错，继续检查其他目录
+                    pass
+
+            # 移动到父目录
+            parent_dir = current_dir.parent
+            if parent_dir == current_dir:
+                # 已经到达文件系统根目录
+                break
+            current_dir = parent_dir
+
+        return False
+    # zgmicro end
+
     def run(self):
         exe = f"clang-format-diff.{'exe' if platform.system() == 'Windows' else 'py'}"
 
         for file in get_files():
             if Path(file).suffix not in ['.c', '.h']:
                 continue
+
+            # zgmicro start
+            # 检查文件是否在.clang-format-ignore中
+            if self.__is_file_excluded(file):
+                continue
+            # zgmicro end
 
             diff = subprocess.Popen(
                 ('git', 'diff', '-U0', '--no-color', COMMIT_RANGE, '--', file),
@@ -3095,7 +3167,9 @@ def _main(args):
 
     if args.output:
         print(f"\nComplete results in {args.output}")
-    return n_fails
+    # zgmicro start
+    return n_fails + n_warnings
+    # zgmicro end
 
 
 def main(argv=None):
