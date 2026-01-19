@@ -131,7 +131,26 @@ class LogParserV3(LogParser):
                 continue
 
             elif fmt == '*':
-                pass
+                # CONFIG_SOC_FAMILY_ZGMICRO_WS
+                # Dynamic width or precision specifier, need to extract an int argument
+                align = self.data_types.get_alignment(DataTypes.INT)
+                size = self.data_types.get_sizeof(DataTypes.INT)
+                unpack_fmt = self.data_types.get_formatter(DataTypes.INT)
+
+                # Align the argument list by rounding up
+                stack_align = self.data_types.get_stack_alignment(DataTypes.INT)
+                if stack_align > 1:
+                    arg_offset = int((arg_offset + (align - 1)) / align) * align
+
+                one_arg = struct.unpack_from(unpack_fmt, arg_list, arg_offset)[0]
+                args.append(one_arg)
+                arg_offset += size
+
+                # Align the offset
+                if stack_align > 1:
+                    arg_offset = int((arg_offset + align - 1) / align) * align
+                continue
+                # CONFIG_SOC_FAMILY_ZGMICRO_WS
 
             elif fmt.isdecimal() or str.lower(fmt) == 'l' or fmt in (' ', '#', '-', '+', '.', 'h'):
                 # formatting modifiers, just ignore
