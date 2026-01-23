@@ -72,6 +72,11 @@ int ipc_rpmsg_register_ept(struct ipc_rpmsg_instance *instance, unsigned int rol
 int ipc_rpmsg_init(struct ipc_rpmsg_instance *instance,
 		   unsigned int role,
 		   unsigned int buffer_size,
+		   //CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+		   unsigned int r2h_buffer_size,
+#endif
+		   //CONFIG_SOC_FAMILY_ZGMICRO_WS
 		   struct metal_io_region *shm_io,
 		   struct virtio_device *vdev,
 		   void *shb, size_t size,
@@ -91,8 +96,13 @@ int ipc_rpmsg_init(struct ipc_rpmsg_instance *instance,
 		struct rpmsg_virtio_config config = { 0 };
 
 		config.h2r_buf_size = (uint32_t) buffer_size;
+		//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+		config.r2h_buf_size = (uint32_t) r2h_buffer_size;
+#else
 		config.r2h_buf_size = (uint32_t) buffer_size;
-
+#endif
+                //CONFIG_SOC_FAMILY_ZGMICRO_WS
 		rpmsg_virtio_init_shm_pool(&instance->shm_pool, shb, size);
 
 		return rpmsg_init_vdev_with_config(&instance->rvdev, vdev, bind_cb,

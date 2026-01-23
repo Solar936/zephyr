@@ -67,6 +67,11 @@ struct backend_config_t {
 	unsigned int wq_prio;
 	unsigned int id;
 	unsigned int buffer_size;
+	//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+	unsigned int r2h_buffer_size;
+#endif
+        //CONFIG_SOC_FAMILY_ZGMICRO_WS
 };
 
 static void rpmsg_service_unbind(struct rpmsg_endpoint *ep)
@@ -252,8 +257,14 @@ static int ept_cb(struct rpmsg_endpoint *ep, void *data, size_t len, uint32_t sr
 static int vr_shm_configure(struct ipc_static_vrings *vr, const struct backend_config_t *conf)
 {
 	unsigned int num_desc;
-
+	//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+	num_desc = optimal_num_desc(conf->shm_size, conf->buffer_size, conf->r2h_buffer_size);
+#else
 	num_desc = optimal_num_desc(conf->shm_size, conf->buffer_size);
+#endif
+	//CONFIG_SOC_FAMILY_ZGMICRO_WS
+
 	if (num_desc == 0) {
 		return -ENOMEM;
 	}
@@ -281,9 +292,17 @@ static int vr_shm_configure(struct ipc_static_vrings *vr, const struct backend_c
 	 */
 
 	vr->shm_addr = ROUND_UP(conf->shm_addr + VDEV_STATUS_SIZE, MEM_ALIGNMENT);
+        //CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+	vr->shm_size = shm_size(num_desc, conf->buffer_size, conf->r2h_buffer_size);
+	vr->rx_addr = vr->shm_addr +  vq_ring_size(num_desc, conf->buffer_size) + vq_ring_size(num_desc, conf->r2h_buffer_size);
+#else
 	vr->shm_size = shm_size(num_desc, conf->buffer_size);
 
 	vr->rx_addr = vr->shm_addr + VRING_COUNT * vq_ring_size(num_desc, conf->buffer_size);
+#endif
+        //CONFIG_SOC_FAMILY_ZGMICRO_WS
+
 	vr->tx_addr = ROUND_UP(vr->rx_addr + vring_size(num_desc, MEM_ALIGNMENT),
 			       MEM_ALIGNMENT);
 
@@ -644,6 +663,11 @@ static int open(const struct device *instance)
 	rpmsg_inst->cb = ept_cb;
 
 	err = ipc_rpmsg_init(rpmsg_inst, data->role, conf->buffer_size,
+		//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+			     conf->r2h_buffer_size,
+#endif
+		//CONFIG_SOC_FAMILY_ZGMICRO_WS
 			     &data->vr.shm_io, &data->vr.vdev,
 			     (void *)data->vr.shm_addr,
 			     data->vr.shm_size, ns_bind_cb);
@@ -871,6 +895,8 @@ static int backend_init(const struct device *instance)
 			   (PRIO_PREEMPT)),						\
 		.buffer_size = DT_INST_PROP_OR(i, zephyr_buffer_size,			\
 					       RPMSG_BUFFER_SIZE),			\
+		IF_ENABLED(CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT, \
+		(.r2h_buffer_size = DT_INST_PROP_OR(i, zephyr_r2h_buffer_size, RPMSG_BUFFER_SIZE),)) \
 		.id = i,								\
 	};										\
 											\
@@ -898,7 +924,9 @@ static int shared_memory_prepare(void)
 
 	for (int i = 0; i < DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT); i++) {
 		if (config[i]->role == ROLE_HOST) {
-			memset((void *) config[i]->shm_addr, 0, VDEV_STATUS_SIZE);
+			//CONFIG_SOC_FAMILY_ZGMICRO_WS
+			memset((void *) config[i]->shm_addr, 0, config[i]->shm_size);
+			//CONFIG_SOC_FAMILY_ZGMICRO_WS
 		}
 	}
 

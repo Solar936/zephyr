@@ -108,6 +108,11 @@ struct ipc_rpmsg_instance {
 int ipc_rpmsg_init(struct ipc_rpmsg_instance *instance,
 		   unsigned int role,
 		   unsigned int buffer_size,
+//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+		   unsigned int r2h_buffer_size,
+#endif
+//CONFIG_SOC_FAMILY_ZGMICRO_WS
 		   struct metal_io_region *shm_io,
 		   struct virtio_device *vdev,
 		   void *shb, size_t size,

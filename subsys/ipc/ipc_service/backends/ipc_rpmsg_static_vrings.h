@@ -141,6 +141,35 @@
 #define ROLE_HOST		VIRTIO_DEV_DRIVER
 #define ROLE_REMOTE		VIRTIO_DEV_DEVICE
 
+//CONFIG_SOC_FAMILY_ZGMICRO_WS
+#if CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+static inline size_t vq_ring_size(unsigned int num, unsigned int buf_size)
+{
+	return ROUND_UP((buf_size * num), MEM_ALIGNMENT);
+}
+
+static inline size_t shm_size(unsigned int num, unsigned int buf_size, unsigned int rx_buf_size)
+{
+	return (vq_ring_size(num, buf_size) + (vq_ring_size(num, rx_buf_size) +
+		ROUND_UP(vring_size(num, MEM_ALIGNMENT), MEM_ALIGNMENT)));
+}
+
+static inline unsigned int optimal_num_desc(size_t mem_size, unsigned int buf_size, unsigned int rx_buf_size)
+{
+	size_t available;
+	unsigned int num_desc = 1;
+
+	available = mem_size - VDEV_STATUS_SIZE;
+
+	while (available > shm_size(num_desc, buf_size, rx_buf_size)) {
+		num_desc++;
+	}
+
+	/* if num_desc == 1 there is not enough memory */
+	return (--num_desc == 0) ? 0 : (1 << LOG2(num_desc));
+}
+#else
+//CONFIG_SOC_FAMILY_ZGMICRO_WS
 static inline size_t vq_ring_size(unsigned int num, unsigned int buf_size)
 {
 	return ROUND_UP((buf_size * num), MEM_ALIGNMENT);
@@ -166,3 +195,4 @@ static inline unsigned int optimal_num_desc(size_t mem_size, unsigned int buf_si
 	/* if num_desc == 1 there is not enough memory */
 	return (--num_desc == 0) ? 0 : (1 << LOG2(num_desc));
 }
+#endif

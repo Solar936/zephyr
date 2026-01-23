@@ -50,3 +50,10 @@ properties:
       The size of the buffer used to send data between host and remote. Default
       value is RPMSG_BUFFER_SIZE. This property must be the same for host and
       remote and preferably a multiple of the cache line size.
+#CONFIG_SOC_FAMILY_ZGMICRO_WS
+  zephyr,r2h-buffer-size:
+    type: int
+    description: |
+       If CONFIG_IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT is enabled,
+       this property is used to set a different value of zephyr,buffer-size.
+#CONFIG_SOC_FAMILY_ZGMICRO_WS

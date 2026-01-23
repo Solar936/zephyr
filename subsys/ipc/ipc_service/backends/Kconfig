@@ -15,6 +15,11 @@ config IPC_SERVICE_BACKEND_RPMSG
 	select IPC_SERVICE_RPMSG
 	select IPC_SERVICE_STATIC_VRINGS
 	select OPENAMP
+	#CONFIG_SOC_FAMILY_ZGMICRO_WS
+config IPC_SERVICE_BACKEND_RPMSG_TX_RX_BUFFER_SIZE_DIFFERENT
+	bool "OpenAMP RPMSG backend with different TX and RX buffer sizes"
+	default n
+	#CONFIG_SOC_FAMILY_ZGMICRO_WS
 
 config IPC_SERVICE_BACKEND_ICMSG
 	bool "ICMSG backend with SPSC packet buffer"
