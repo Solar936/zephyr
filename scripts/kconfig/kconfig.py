@@ -196,8 +196,9 @@ def check_assigned_sym_values(kconf):
 
                 msg += "Check these unsatisfied dependencies: " + \
                     ", ".join(expr_strs) + ". "
-
-            warn(msg + SYM_INFO_HINT.format(sym))
+            # zgmicro start
+            warn(msg + SYM_INFO_HINT.format(sym), kconf)
+            # zgmicro end
 
 
 def missing_deps(sym):
@@ -241,11 +242,12 @@ def check_assigned_choice_values(kconf):
     for choice in kconf.unique_choices:
         if choice.user_selection and \
            choice.user_selection is not choice.selection:
-
+            # zgmicro start
             warn(f"""\
 The choice symbol {choice.user_selection.name_and_loc} was selected (set =y),
 but {choice.selection.name_and_loc if choice.selection else "no symbol"} ended
-up as the choice selection. """ + SYM_INFO_HINT.format(choice.user_selection))
+up as the choice selection. """ + SYM_INFO_HINT.format(choice.user_selection), kconf)
+            # zgmicro end
 
 
 # Hint on where to find symbol information. Used like
@@ -266,7 +268,9 @@ def check_deprecated(kconf):
         selectors = [s for s in split_expr(dep_expr, OR) if expr_value(s) == 2]
         for selector in selectors:
             selector_name = split_expr(selector, AND)[0].name
-            warn(f'Deprecated symbol {selector_name} is enabled.')
+            # zgmicro start
+            warn(f'Deprecated symbol {selector_name} is enabled.', kconf)
+            # zgmicro end
 
 
 def check_experimental(kconf):
@@ -277,7 +281,10 @@ def check_experimental(kconf):
         selectors = [s for s in split_expr(dep_expr, OR) if expr_value(s) == 2]
         for selector in selectors:
             selector_name = split_expr(selector, AND)[0].name
-            warn(f'Experimental symbol {selector_name} is enabled.')
+            # zgmicro start
+            warn(f'Experimental symbol {selector_name} is enabled.', kconf)
+            # zgmicro end
+
 
 def check_not_secure(kconf):
     not_secure = kconf.syms.get('NOT_SECURE')
@@ -287,7 +294,9 @@ def check_not_secure(kconf):
         selectors = [s for s in split_expr(dep_expr, OR) if expr_value(s) == 2]
         for selector in selectors:
             selector_name = split_expr(selector, AND)[0].name
-            warn(f'Not secure symbol {selector_name} is enabled.')
+            # zgmicro start
+            warn(f'Not secure symbol {selector_name} is enabled.', kconf)
+            # zgmicro end
 
 
 def promptless(sym):
@@ -382,12 +391,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def warn(msg):
+def warn(msg, kconf):
     # Use a large fill() width to try to avoid linebreaks in the symbol
     # reference link, and add some extra newlines to set the message off from
     # surrounding text (this usually gets printed as part of spammy CMake
     # output)
     print("\n" + textwrap.fill("warning: " + msg, 100) + "\n", file=sys.stderr)
+    # zgmicro start
+    kconf._warn(msg)
+    # zgmicro end
 
 
 def err(msg):
