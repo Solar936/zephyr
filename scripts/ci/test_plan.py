@@ -358,6 +358,11 @@ class Filters:
             self.get_plan(_options, use_testsuite_root=False)
 
     def find_tags(self):
+
+        # zgmicro start
+        return
+        # zgmicro end
+
         with open(self.tag_cfg_file) as ymlfile:
             tags_config = yaml.safe_load(ymlfile)
 
