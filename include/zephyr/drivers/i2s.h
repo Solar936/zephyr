@@ -196,6 +196,19 @@ typedef uint8_t i2s_opt_t;
 /** @deprecated @see I2S_OPT_FRAME_CLK_TARGET */
 #define I2S_OPT_FRAME_CLK_SLAVE             I2S_OPT_FRAME_CLK_TARGET __DEPRECATED_MACRO
 
+// ZGMICRO Start
+#if CONFIG_SOC_FAMILY_ZGMICRO_WS
+/** I2S driver is sync clock */
+#define I2S_OPT_SYNC_EN                     BIT(3)
+
+/** I2S driver is asrc tx enable */
+#define I2S_OPT_ASRC_TX_EN                  BIT(4)
+/** I2S driver is asrc rx enable */
+#define I2S_OPT_ASRC_RX_EN                  BIT(5)
+
+#endif // CONFIG_SOC_FAMILY_ZGMICRO_WS
+// ZGMICRO End
+
 /** @brief Loop back mode.
  *
  * In loop back mode RX input will be connected internally to TX output.
