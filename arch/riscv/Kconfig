@@ -171,6 +171,27 @@ config RISCV_SOC_HAS_ISR_STACKING
 	    stack with proper values. This prevents from incorrect behavior
 	    on entry context switch when initial stack is restored.
 
+# ZGMICRO Start
+config RISCV_SOC_HAS_ISR_HOOKS
+	bool "SOC ISR enter/exit hooks"
+	default n
+	help
+	  Enable SOC-specific hooks that are called when entering and exiting
+	  interrupt service routines (ISRs).
+
+	  When enabled, the SoC must implement the following functions in soc.c:
+
+	  - soc_isr_enter_hook(void): Called after switching to the interrupt
+	    stack but before handling the interrupt.
+
+	  - soc_isr_exit_hook(void): Called when exiting the ISR, after the
+	    interrupt handling is complete but before decrementing the nested
+	    count and potentially switching back to the thread stack.
+
+	  These hooks can be used for SOC-specific tasks such as profiling,
+	  power management, or debugging.
+# ZGMICRO End
+
 config RISCV_SOC_HAS_CUSTOM_IRQ_HANDLING
 	bool
 	help

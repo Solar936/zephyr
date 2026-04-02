@@ -106,6 +106,13 @@ GTEXT(z_riscv_custom_stack_guard_enable)
 GTEXT(z_riscv_custom_stack_guard_disable)
 #endif /* CONFIG_CUSTOM_STACK_GUARD */
 
+// Zgmicro Start
+#if CONFIG_RISCV_SOC_HAS_ISR_HOOKS
+GTEXT(soc_isr_enter_hook)
+GTEXT(soc_isr_exit_hook)
+#endif
+// Zgmicro End
+
 /* exports */
 GTEXT(_isr_wrapper)
 
@@ -665,6 +672,16 @@ on_irq_stack:
 	call __soc_handle_all_irqs
 #else
 
+// ZGMICRO Start
+#if CONFIG_RISCV_SOC_HAS_ISR_HOOKS
+	/* Call SOC enter hook before handling interrupt */
+	csrr a0, mcause
+	li t0, CONFIG_RISCV_MCAUSE_EXCEPTION_MASK
+	and a0, a0, t0
+	call soc_isr_enter_hook
+#endif // CONFIG_RISCV_SOC_HAS_ISR_HOOKS
+// ZGMICRO End
+
 #ifdef CONFIG_TRACING_ISR
 	call sys_trace_isr_enter
 #endif
@@ -707,6 +724,13 @@ on_irq_stack:
 #ifdef CONFIG_TRACING_ISR
 	call sys_trace_isr_exit
 #endif
+
+// ZGMICRO Start
+#if CONFIG_RISCV_SOC_HAS_ISR_HOOKS
+	/* Call SOC exit hook after handling interrupt */
+	call soc_isr_exit_hook
+#endif // CONFIG_RISCV_SOC_HAS_ISR_HOOKS
+// ZGMICRO End
 
 #endif
 
