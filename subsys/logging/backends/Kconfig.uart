@@ -3,7 +3,9 @@
 
 config LOG_BACKEND_UART
 	bool "UART backend"
-	depends on UART_CONSOLE
+	# ZGMICRO Start
+	depends on UART_CONSOLE || DT_HAS_ZEPHYR_LOG_UART_ENABLED
+	# ZGMICRO End
 	default y if !SHELL_BACKEND_SERIAL
 	select LOG_BACKEND_SUPPORTS_FORMAT_TIMESTAMP
 	help
