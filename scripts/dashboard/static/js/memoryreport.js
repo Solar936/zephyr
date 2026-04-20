@@ -71,5 +71,21 @@
     initTree("ramTree", ramReport);
     initTree("romTree", romReport);
     initTree("allTree", allReport);
+
+    // Zgmicro Start
+    // Plotly charts rendered inside initially hidden Bootstrap tabs have
+    // zero size and won't draw. Resize them when their tab becomes visible.
+    if (typeof Plotly !== 'undefined') {
+      document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(function (btn) {
+        btn.addEventListener('shown.bs.tab', function (ev) {
+          var pane = document.querySelector(ev.target.getAttribute('data-bs-target'));
+          if (!pane) return;
+          pane.querySelectorAll('.js-plotly-plot').forEach(function (el) {
+            Plotly.Plots.resize(el);
+          });
+        });
+      });
+    }
+    // Zgmicro End
   });
 })();

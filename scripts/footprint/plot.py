@@ -52,6 +52,10 @@ def generate_figure(data, depth=4):
     parents = []
     values = []
     hovertext = []
+    # Zgmicro Start
+    # Track which index each id maps to, plus parent->children indices.
+    children_idx = {}
+    # Zgmicro End
 
     def iter_node(node: dict, parent=''):
         identifier = node.get('identifier')
@@ -65,10 +69,16 @@ def generate_figure(data, depth=4):
                 idx += 1
             identifier = f'{identifier}_{idx}'
 
+        # Zgmicro Start
+        idx = len(ids)
+        # Zgmicro End
         ids.append(identifier)
         labels.append(node.get('name', ''))
         parents.append(parent)
         values.append(node.get('size', 0))
+        # Zgmicro Start
+        children_idx.setdefault(parent, []).append(idx)
+        # Zgmicro End
 
         details = []
         if totalsize > 0:
@@ -84,6 +94,48 @@ def generate_figure(data, depth=4):
             iter_node(child, identifier)
 
     iter_node(data.get('symbols', {}))
+
+    # Zgmicro Start
+    # Normalize values top-down so sum(children) == parent for every branch.
+    # The size_report JSON occasionally contains "organizational" parent nodes
+    # with size 0 whose children have non-zero sizes (e.g. the synthetic "/"
+    # filesystem root that duplicates the "(hidden)" subtree). Plotly.js v3
+    # strictly rejects branchvalues='total' mismatches and silently renders an
+    # empty chart, so we enforce consistency here while preserving the reported
+    # parent sizes (which match the textual table).
+    def normalize(node_idx):
+        node_id = ids[node_idx]
+        parent_val = values[node_idx]
+        kids = list(children_idx.get(node_id, ()))
+        if not kids:
+            return
+        child_sum = sum(values[ci] for ci in kids)
+        if parent_val == 0:
+            # Purely organizational node: zero the whole subtree so it doesn't
+            # double-count against sibling branches.
+            for ci in kids:
+                values[ci] = 0
+                normalize(ci)
+            return
+        if child_sum > parent_val and child_sum > 0:
+            # Children overshoot parent; scale them proportionally.
+            for ci in kids:
+                values[ci] = values[ci] * parent_val // child_sum
+        elif child_sum < parent_val:
+            # Missing contribution from the parent itself; add a "(self)" leaf.
+            remainder = parent_val - child_sum
+            ids.append(f'{node_id}__self')
+            labels.append('(self)')
+            parents.append(node_id)
+            values.append(remainder)
+            hovertext.append('')
+            children_idx.setdefault(node_id, []).append(len(ids) - 1)
+        for ci in kids:
+            normalize(ci)
+
+    for root_idx in children_idx.get('', ()):
+        normalize(root_idx)
+    # Zgmicro End
 
     fig = go.Figure(
         go.Sunburst(

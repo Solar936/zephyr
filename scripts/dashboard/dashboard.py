@@ -230,7 +230,13 @@ class KconfigSymbol:
         Return an HTML representation of the symbol location.
         '''
         if self.loc and self.src in ['default', 'assign']:
-            fn = os.path.relpath(self.loc[0], self.build.zephyr_base)
+            # Zgmicro Start
+            try:
+                fn = os.path.relpath(self.loc[0], self.build.zephyr_base)
+            except ValueError:
+                # Windows: path on different drive than zephyr_base
+                fn = self.loc[0]
+            # Zgmicro End
             disp_fn = os.path.normpath(fn).replace("../", "")
             sym_loc = f'{disp_fn}:{self.loc[1]}'
         elif self.loc and self.src in ['select', 'imply']:
@@ -386,6 +392,15 @@ class ZephyrDashboard:
             str(self.elf_file),
             '-z',
             str(self.zephyr_base.absolute()),
+        ]
+        # Zgmicro Start
+        # Align with the `ram_report`/`rom_report` CMake targets: pass the West
+        # topdir so symbols from other workspace repos (mist/, modules/, etc.)
+        # get grouped under a WORKSPACE node instead of falling into (hidden).
+        if self.topdir and Path(self.topdir).exists():
+            cmd += ['-w', str(Path(self.topdir).absolute())]
+        # Zgmicro End
+        cmd += [
             '--json',
             str(self.output_path / '{target}_report.json'),
             '--quiet',
