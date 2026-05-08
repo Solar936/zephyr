@@ -171,7 +171,9 @@ uint64_t sys_clock_cycle_get_64(void)
 static int sys_clock_driver_init(void)
 {
 	IRQ_CONNECT(TIMER_IRQN, 0, timer_isr, NULL, 0);
-	last_ticks = mtime() / CYC_PER_TICK;
+	//初始化时硬件 mtime 寄存器从 0 开始计数，值极小，安全截为 uint32_t 再做 32-bit 除法，结果赋给 uint64_t last_ticks，逻辑完全等价。
+	/* mtime is near 0 at boot, cast to uint32_t avoids 64-bit division (__udivdi3) */
+	last_ticks = (uint32_t)mtime() / CYC_PER_TICK;
 	last_count = last_ticks * CYC_PER_TICK;
 	set_mtimecmp(last_count + CYC_PER_TICK);
 	irq_enable(TIMER_IRQN);
