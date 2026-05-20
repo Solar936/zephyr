@@ -15,9 +15,6 @@
 #include <zephyr/devicetree.h>
 
 #include <zephyr/arch/arm/cortex_m/nvic.h>
-#ifndef _ASMLANGUAGE
-#include <zephyr/arch/arm/arm-m-switch.h>
-#endif
 
 /* for assembler, only works with constants */
 #define Z_EXC_PRIO(pri) (((pri) << (8 - NUM_IRQ_PRIO_BITS)) & 0xff)
@@ -58,6 +55,10 @@
 /* Use lowest possible priority level for PendSV */
 #define _EXC_PENDSV_PRIO      0xff
 #define _EXC_PENDSV_PRIO_MASK Z_EXC_PRIO(_EXC_PENDSV_PRIO)
+
+#ifndef _ASMLANGUAGE
+#include <zephyr/arch/arm/arm-m-switch.h>
+#endif
 
 #ifdef _ASMLANGUAGE
 #ifndef CONFIG_USE_SWITCH

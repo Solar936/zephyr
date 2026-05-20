@@ -10,6 +10,8 @@
 
 #if defined(CONFIG_EXCEPTION_DUMP_HOOK)
 
+#ifndef _ASMLANGUAGE
+
 #include <stdbool.h>
 #include <stdarg.h>
 
@@ -86,6 +88,8 @@ static inline void arch_exception_call_dump_hook(const char *format, ...)
 		va_end(args);
 	}
 }
+
+#endif /* _ASMLANGUAGE */
 
 #if defined(CONFIG_EXCEPTION_DUMP_HOOK_ONLY)
 #define EXCEPTION_DUMP(format, ...) arch_exception_call_dump_hook(format "\n",  ##__VA_ARGS__)
