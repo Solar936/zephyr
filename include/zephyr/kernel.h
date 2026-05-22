@@ -6456,6 +6456,11 @@ void *k_realloc(void *ptr, size_t size);
 void sys_heap_info_set_owner(void *p_addr, uint32_t lr);
 void sys_heap_info_set_arg(void *p_addr, uint8_t arg);
 size_t sys_heap_info_get_size(void *p_addr);
+#if CONFIG_HEAP_CHUNK
+#define __SYS_HEAP_HEAD_OFFSET(ptr) (ptr?(struct k_heap **)ptr - 1:0)
+#else
+#define __SYS_HEAP_HEAD_OFFSET(ptr) (ptr)
+#endif
 
 /**
  * @brief 设置内存块的所有者信息
@@ -6473,11 +6478,11 @@ size_t sys_heap_info_get_size(void *p_addr);
  * - 必须在分配后立即设置所有者，避免指针偏移失效
  * - 所有权信息主要用于调试目的，不应用于运行时权限检查
  *
- * @param ptr 指向已分配内存块的指针：
+ * @param ptr 指向已分配内存块的指针
  *            - NULL指针会被安全处理，不会导致崩溃
  *            - 非NULL指针会指向有效内存块的元数据前缀
  */
-#define k_alloc_set_owner(ptr) sys_heap_info_set_owner(ptr?(struct k_heap **)ptr - 1:0, (uintptr_t)__builtin_return_address(0))
+#define k_alloc_set_owner(ptr) sys_heap_info_set_owner(__SYS_HEAP_HEAD_OFFSET(ptr), (uintptr_t)__builtin_return_address(0))
 
 /**
  * @brief 设置内存块的附加参数
@@ -6501,7 +6506,7 @@ size_t sys_heap_info_get_size(void *p_addr);
  *            - 非NULL指针会指向有效内存块的元数据前缀
  * @param arg 要设置的附加参数值（0-255范围内的无符号整数）
  */
-#define k_alloc_set_arg(ptr, arg) sys_heap_info_set_arg(ptr?(struct k_heap **)ptr - 1:0, arg)
+#define k_alloc_set_arg(ptr, arg) sys_heap_info_set_arg(__SYS_HEAP_HEAD_OFFSET(ptr), arg)
 
 /**
  * @brief 获取已分配内存块的大小
@@ -6527,7 +6532,7 @@ size_t sys_heap_info_get_size(void *p_addr);
  *         - 成功时：返回实际分配的内存块大小（包括元数据）
  *         - 失败时：返回0（如空指针或无效指针）
  */
-#define k_alloc_get_size(ptr)     sys_heap_info_get_size(ptr?(struct k_heap **)ptr - 1:0)
+#define k_alloc_get_size(ptr)     sys_heap_info_get_size(__SYS_HEAP_HEAD_OFFSET(ptr))
 
 #else
 #define k_alloc_set_owner(ptr)
