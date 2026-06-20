@@ -2164,9 +2164,29 @@ if(NOT CMAKE_C_COMPILER_ID STREQUAL "ARMClang")
     endif()
   endif()
 
+  # Zgmicro Start
+  # The mist module ships a wrapper that augments the initlevels listing with
+  # the real Kconfig init priority parsed from the linker map (e.g. P31 for
+  # gpio_ws96xx_init). Use it when present, otherwise fall back to the
+  # upstream listing.
+  if(DEFINED ZEPHYR_MIST_MODULE_DIR AND
+     EXISTS ${ZEPHYR_MIST_MODULE_DIR}/scripts/build/initlevels_prio.py)
+    set(initlevels_command
+        ${PYTHON_EXECUTABLE}
+        ${ZEPHYR_MIST_MODULE_DIR}/scripts/build/initlevels_prio.py
+        --zephyr-base=${ZEPHYR_BASE}
+        --elf-file=${check_init_priorities_input}
+    )
+  else()
+    set(initlevels_command ${check_init_priorities_command} --initlevels)
+  endif()
+  # Zgmicro End
+
   add_custom_target(
     initlevels
-    COMMAND ${check_init_priorities_command} --initlevels
+    # Zgmicro Start
+    COMMAND ${initlevels_command}
+    # Zgmicro End
     DEPENDS ${check_init_priorities_dependencies}
     USES_TERMINAL
   )

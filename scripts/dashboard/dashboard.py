@@ -281,9 +281,17 @@ class ZephyrDashboard:
         output_path,
         kernel_bin_name="zephyr",
         skip_memory_report=False,
+        # Zgmicro Start
+        mist_base=None,
+        # Zgmicro End
     ):
         self.zephyr_base = Path(zephyr_base)
         self.kernel_bin_name = kernel_bin_name
+        # Zgmicro Start
+        # Path to the mist module, used to locate the initlevels_prio wrapper
+        # that recovers the real Kconfig init priorities from the linker map.
+        self.mist_base = mist_base
+        # Zgmicro End
         self.build_path = Path(build_path) if build_path else self.zephyr_base / "build"
         self.output_path = Path(output_path) if output_path else self.build_path / "dashboard"
 
@@ -364,6 +372,76 @@ class ZephyrDashboard:
 
         self.sys_init_errors = validator_log.getvalue().splitlines()
         self.sys_init_levels = validator.initlevels
+        # Zgmicro Start
+        self.sys_init_priorities = self._init_priorities(validator)
+        # Zgmicro End
+
+    # Zgmicro Start
+    def _init_priorities(self, validator):
+        '''
+        Build a {level: {call: priority}} map of the real Kconfig init
+        priorities, parsed from the linker map by the mist initlevels_prio
+        wrapper. Returns an empty map (no priorities shown) if the mist module
+        or its wrapper is not available.
+
+        This is a display-only enhancement that reaches into a few private
+        members of the upstream check_init_priorities objects and the mist
+        wrapper (e.g. validator._obj, _object_addr, _find_map_file). To make
+        sure a future upstream change can never break the main dashboard
+        generation, every failure here is caught and degrades gracefully to
+        "no priorities shown" (with a warning), instead of propagating out of
+        the constructor.
+        '''
+        if not self.mist_base:
+            return {}
+
+        wrapper = Path(self.mist_base) / "scripts" / "build" / "initlevels_prio.py"
+        if not wrapper.exists():
+            return {}
+
+        try:
+            # Load the wrapper as a module so we reuse its map-parsing logic
+            # instead of duplicating it here.
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location("initlevels_prio", wrapper)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            # The map-parsing helpers and the validator internals used below
+            # are private implementation details and not a stable interface.
+            # Probe them explicitly and bail out (no priorities) if any is
+            # missing or has changed shape.
+            find_map_file = getattr(mod, "_find_map_file", None)
+            parse_map = getattr(mod, "parse_map_priorities", None)
+            obj = getattr(validator, "_obj", None)
+            object_addr = getattr(obj, "_object_addr", None)
+            if not callable(find_map_file) or not callable(parse_map) or object_addr is None:
+                logger.warning(
+                    "initlevels_prio: incompatible interface, skipping init priorities"
+                )
+                return {}
+
+            prio_map = parse_map(find_map_file(self.elf_file))
+            if not prio_map:
+                return {}
+
+            priorities = {}
+            for level, calls in self.sys_init_levels.items():
+                level_prios = {}
+                for call in calls:
+                    sym_name = call.split(":")[0].strip()
+                    addr = object_addr.get(sym_name)
+                    prio = prio_map.get(addr) if addr is not None else None
+                    if prio is not None:
+                        level_prios[call] = prio
+                priorities[level] = level_prios
+            return priorities
+        except Exception as e:  # noqa: BLE001
+            # Never let a display enhancement break dashboard generation.
+            logger.warning(f"Unable to compute init priorities: {e}")
+            return {}
+    # Zgmicro End
 
     def _init_kconfigs(self):
         '''
@@ -798,6 +876,14 @@ def parse_args():
     parser.add_argument("build", help="Build directory", nargs='?', default="build")
     parser.add_argument("--output", help="Output directory for index.html")
     parser.add_argument("--zephyr-base", default=".", help="Zephyr base directory")
+    # Zgmicro Start
+    parser.add_argument(
+        "--mist-base",
+        default=None,
+        help="path to the mist module, used to locate the initlevels_prio "
+        "wrapper that recovers the real Kconfig init priorities",
+    )
+    # Zgmicro End
     parser.add_argument("--kernel-bin-name", default="zephyr", help="Kernel binary name")
     parser.add_argument(
         "--skip-memory-report",
@@ -841,6 +927,9 @@ def main():
         output_path,
         kernel_bin_name=args.kernel_bin_name,
         skip_memory_report=args.skip_memory_report,
+        # Zgmicro Start
+        mist_base=args.mist_base,
+        # Zgmicro End
     )
     build.create_html()
 

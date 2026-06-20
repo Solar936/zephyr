@@ -26,7 +26,15 @@ SPDX-License-Identifier: Apache-2.0
       {% if calls %}
       {% for call in calls %}
       {% set call_split = call.split(':', maxsplit=1) %}
-      <li>{{call_split[0]}}: <code>{{call_split[1]}}</code></li>
+      {# Zgmicro Start #}
+      {% set prio = build.sys_init_priorities.get(level, {}).get(call) %}
+      <li>
+        {% if prio is not none %}
+        <span class="badge bg-secondary" title="Kconfig init priority">P{{prio}}</span>
+        {% endif %}
+        {{call_split[0]}}: <code>{{call_split[1]}}</code>
+      </li>
+      {# Zgmicro End #}
       {% endfor %}
       {% else %}
       <i>No init functions at this level</i>

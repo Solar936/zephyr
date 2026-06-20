@@ -163,6 +163,10 @@ add_custom_target(
   ${ZEPHYR_BASE}/scripts/dashboard/dashboard.py
   --output ${CMAKE_BINARY_DIR}/dashboard
   --zephyr-base ${ZEPHYR_BASE}
+  # Zgmicro Start
+  $<$<BOOL:${ZEPHYR_MIST_MODULE_DIR}>:--mist-base>
+  $<$<BOOL:${ZEPHYR_MIST_MODULE_DIR}>:${ZEPHYR_MIST_MODULE_DIR}>
+  # Zgmicro End
   --kernel-bin-name ${CONFIG_KERNEL_BIN_NAME}
   --open
   ${CMAKE_BINARY_DIR}
