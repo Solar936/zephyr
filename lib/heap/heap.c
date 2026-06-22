@@ -348,7 +348,7 @@ void sys_heap_free(struct sys_heap *heap, void *mem)
 #endif
 
 	free_chunk(h, c);
-	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_free_back(mem)));
+	IF_ENABLED(CONFIG_HEAP_INFO_DEBUG, (sys_heap_info_free_back(mem, 0)));
 }
 
 size_t sys_heap_usable_size(struct sys_heap *heap, void *mem)
