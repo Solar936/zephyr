@@ -20,7 +20,9 @@
 /* needs to be outside _ASMLANGUAGE so 'true' and 'false' can turn
  * into '1' and '0' for asm or linker scripts
  */
+#ifndef _LINKER
 #include <stdbool.h>
+#endif /* _LINKER */
 
 #ifndef _ASMLANGUAGE
 

@@ -61,7 +61,9 @@
 #undef __BYTE_ORDER__
 #endif
 
+#ifndef __GCC_LINKER_CMD__
 #include <stdbool.h>
+#endif /* __GCC_LINKER_CMD__ */
 
 #ifndef __INT8_C
 #define __INT8_C(x)	x
@@ -171,7 +173,9 @@
 #define __builtin_unreachable() __builtin_trap()
 
 /* Not a full barrier, just a SW barrier */
+#ifndef __sync_synchronize
 #define __sync_synchronize() do { __asm__ __volatile__ ("" ::: "memory"); } \
 	while (false)
+#endif
 
 #endif
