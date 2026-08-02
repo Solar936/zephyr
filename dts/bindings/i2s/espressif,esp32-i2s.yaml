@@ -28,3 +28,12 @@ properties:
     required: true
     description: I2S unit number.
       Possible values are 0,1,.. depending on chip.
+
+  rx-slot:
+    type: string
+    default: "stereo"
+    enum:
+      - "left"
+      - "right"
+      - "stereo"
+    description: RX active slot selection. Left and right use mono RX; stereo uses both slots.

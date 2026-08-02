@@ -43,6 +43,16 @@ LOG_MODULE_REGISTER(i2s_esp32, CONFIG_I2S_LOG_LEVEL);
 #define I2S_ESP32_IS_DIR_EN(d)         (LISTIFY(I2S_ESP32_NUM_INST_OK, I2S_ESP32_IS_DIR_INST_EN,   \
 						(||), d))
 
+#define I2S_ESP32_RX_SLOT_MODE(index)                                                         \
+	COND_CODE_1(DT_INST_ENUM_HAS_VALUE(index, rx_slot, stereo),                           \
+		    (I2S_SLOT_MODE_STEREO), (I2S_SLOT_MODE_MONO))
+
+#define I2S_ESP32_RX_SLOT_MASK(index)                                                         \
+	COND_CODE_1(DT_INST_ENUM_HAS_VALUE(index, rx_slot, left),                             \
+		    (I2S_STD_SLOT_LEFT),                                                        \
+		    (COND_CODE_1(DT_INST_ENUM_HAS_VALUE(index, rx_slot, right),                \
+				 (I2S_STD_SLOT_RIGHT), (I2S_STD_SLOT_BOTH))))
+
 struct queue_item {
 	void *buffer;
 	size_t size;
@@ -86,6 +96,8 @@ struct i2s_esp32_cfg {
 	const struct pinctrl_dev_config *pcfg;
 	const struct device *clock_dev;
 	clock_control_subsys_t clock_subsys;
+	i2s_slot_mode_t rx_hal_slot_mode;
+	i2s_std_slot_mask_t rx_hal_slot_mask;
 	struct i2s_esp32_stream rx;
 	struct i2s_esp32_stream tx;
 };
@@ -1266,6 +1278,7 @@ static int i2s_esp32_configure(const struct device *dev, enum i2s_dir dir,
 
 #if I2S_ESP32_IS_DIR_EN(rx)
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
+		i2s_hal_slot_config_t rx_slot_cfg = slot_cfg;
 		bool rx_is_target;
 
 		rx_is_target = is_target;
@@ -1273,7 +1286,9 @@ static int i2s_esp32_configure(const struct device *dev, enum i2s_dir dir,
 			rx_is_target = true;
 		}
 
-		i2s_hal_std_set_rx_slot(hal, rx_is_target, &slot_cfg);
+		rx_slot_cfg.slot_mode = dev_cfg->rx_hal_slot_mode;
+		rx_slot_cfg.std.slot_mask = dev_cfg->rx_hal_slot_mask;
+		i2s_hal_std_set_rx_slot(hal, rx_is_target, &rx_slot_cfg);
 		i2s_hal_set_rx_clock(hal, &i2s_hal_clock_info, I2S_ESP32_CLK_SRC, NULL);
 		i2s_ll_rx_enable_std(hal->dev);
 
@@ -1686,6 +1701,8 @@ static DEVICE_API(i2s, i2s_esp32_driver_api) = {
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                                     \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(index)),                            \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(index, offset),        \
+		.rx_hal_slot_mode = I2S_ESP32_RX_SLOT_MODE(index),                                 \
+		.rx_hal_slot_mask = I2S_ESP32_RX_SLOT_MASK(index),                                 \
 		I2S_ESP32_STREAM_INIT(index, rx),                                                  \
 		I2S_ESP32_STREAM_INIT(index, tx),                                                  \
 	};                                                                                         \
