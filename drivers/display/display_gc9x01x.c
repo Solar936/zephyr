@@ -4,299 +4,24 @@
  * Copyright (c) 2023 Martin Kiepfer <mrmarteng@teleschirm.org>
  * SPDX-License-Identifier: Apache-2.0
  */
-#define DT_DRV_COMPAT galaxycore_gc9x01x
 
 #include "display_gc9x01x.h"
 
+#include <zephyr/kernel.h>
 #include <zephyr/dt-bindings/display/panel.h>
 #include <zephyr/drivers/display.h>
 #include <zephyr/drivers/mipi_dbi.h>
-#include <zephyr/pm/device.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/sys/byteorder.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_gc9x01x, CONFIG_DISPLAY_LOG_LEVEL);
 
-/* Maximum number of default init registers  */
-#define GC9X01X_NUM_DEFAULT_INIT_REGS 12U
-
-/* Display data struct */
-struct gc9x01x_data {
-	uint8_t bytes_per_pixel;
-	enum display_pixel_format pixel_format;
-	enum display_orientation orientation;
-};
-
-/* Configuration data struct.*/
-struct gc9x01x_config {
-	const struct device *mipi_dev;
-	struct mipi_dbi_config dbi_config;
-	uint8_t pixel_format;
-	uint16_t orientation;
-	uint16_t x_resolution;
-	uint16_t y_resolution;
-	bool inversion;
-	const void *regs;
-};
-
-/* Initialization command data struct  */
-struct gc9x01x_default_init_regs {
-	uint8_t cmd;
-	uint8_t len;
-	uint8_t data[GC9X01X_NUM_DEFAULT_INIT_REGS];
-};
-
-/*
- * Default initialization commands. There are a lot of undocumented commands
- * within the manufacturer sample code, that are essential for proper operation of
- * the display controller
- */
-static const struct gc9x01x_default_init_regs default_init_regs[] = {
-	{
-		.cmd = 0xEBU,
-		.len = 1U,
-		.data = {0x14U},
-	},
-	{
-		.cmd = 0x84U,
-		.len = 1U,
-		.data = {0x40U},
-	},
-	{
-		.cmd = 0x85U,
-		.len = 1U,
-		.data = {0xFFU},
-	},
-	{
-		.cmd = 0x86U,
-		.len = 1U,
-		.data = {0xFFU},
-	},
-	{
-		.cmd = 0x87U,
-		.len = 1U,
-		.data = {0xFFU},
-	},
-	{
-		.cmd = 0x88U,
-		.len = 1U,
-		.data = {0x0AU},
-	},
-	{
-		.cmd = 0x89U,
-		.len = 1U,
-		.data = {0x21U},
-	},
-	{
-		.cmd = 0x8AU,
-		.len = 1U,
-		.data = {0x00U},
-	},
-	{
-		.cmd = 0x8BU,
-		.len = 1U,
-		.data = {0x80U},
-	},
-	{
-		.cmd = 0x8CU,
-		.len = 1U,
-		.data = {0x01U},
-	},
-	{
-		.cmd = 0x8DU,
-		.len = 1U,
-		.data = {0x01U},
-	},
-	{
-		.cmd = 0x8EU,
-		.len = 1U,
-		.data = {0xFFU},
-	},
-	{
-		.cmd = 0x8FU,
-		.len = 1U,
-		.data = {0xFFU},
-	},
-	{
-		.cmd = 0xB6U,
-		.len = 2U,
-		.data = {0x00U, 0x20U},
-	},
-	{
-		.cmd = 0x90U,
-		.len = 4U,
-		.data = {0x08U, 0x08U, 0x08U, 0x08U},
-	},
-	{
-		.cmd = 0xBDU,
-		.len = 1U,
-		.data = {0x06U},
-	},
-	{
-		.cmd = 0xBCU,
-		.len = 1U,
-		.data = {0x00U},
-	},
-	{
-		.cmd = 0xFFU,
-		.len = 3U,
-		.data = {0x60U, 0x01U, 0x04U},
-	},
-	{
-		.cmd = 0xBEU,
-		.len = 1U,
-		.data = {0x11U},
-	},
-	{
-		.cmd = 0xE1U,
-		.len = 2U,
-		.data = {0x10U, 0x0EU},
-	},
-	{
-		.cmd = 0xDFU,
-		.len = 3U,
-		.data = {0x21U, 0x0CU, 0x02U},
-	},
-	{
-		.cmd = 0xEDU,
-		.len = 2U,
-		.data = {0x1BU, 0x0BU},
-	},
-	{
-		.cmd = 0xAEU,
-		.len = 1U,
-		.data = {0x77U},
-	},
-	{
-		.cmd = 0xCDU,
-		.len = 1U,
-		.data = {0x63U},
-	},
-	{
-		.cmd = 0x70U,
-		.len = 9U,
-		.data = {0x07U, 0x07U, 0x04U, 0x0EU, 0x0FU, 0x09U, 0x07U, 0x08U, 0x03U},
-	},
-	{
-		.cmd = 0x62U,
-		.len = 12U,
-		.data = {0x18U, 0x0DU, 0x71U, 0xEDU, 0x70U, 0x70U, 0x18U, 0x0FU, 0x71U, 0xEFU,
-			 0x70U, 0x70U},
-	},
-	{
-		.cmd = 0x63U,
-		.len = 12U,
-		.data = {0x18U, 0x11U, 0x71U, 0xF1U, 0x70U, 0x70U, 0x18U, 0x13U, 0x71U, 0xF3U,
-			 0x70U, 0x70U},
-	},
-	{
-		.cmd = 0x64U,
-		.len = 7U,
-		.data = {0x28U, 0x29U, 0xF1U, 0x01U, 0xF1U, 0x00U, 0x07U},
-	},
-	{
-		.cmd = 0x66U,
-		.len = 10U,
-		.data = {0x3CU, 0x00U, 0xCDU, 0x67U, 0x45U, 0x45U, 0x10U, 0x00U, 0x00U, 0x00U},
-	},
-	{
-		.cmd = 0x67U,
-		.len = 10U,
-		.data = {0x00U, 0x3CU, 0x00U, 0x00U, 0x00U, 0x01U, 0x54U, 0x10U, 0x32U, 0x98U},
-	},
-	{
-		.cmd = 0x74U,
-		.len = 7U,
-		.data = {0x10U, 0x85U, 0x80U, 0x00U, 0x00U, 0x4EU, 0x00U},
-	},
-	{
-		.cmd = 0x98U,
-		.len = 2U,
-		.data = {0x3EU, 0x07U},
-	},
-};
-
-static int gc9x01x_transmit(const struct device *dev, uint8_t cmd, const void *tx_data,
-			    size_t tx_len)
+int gc9x01x_transmit(const struct device *dev, uint8_t cmd, const void *tx_data, size_t tx_len)
 {
 	const struct gc9x01x_config *config = dev->config;
 
-	return mipi_dbi_command_write(config->mipi_dev, &config->dbi_config,
-				      cmd, tx_data, tx_len);
-}
-
-static int gc9x01x_regs_init(const struct device *dev)
-{
-	const struct gc9x01x_config *config = dev->config;
-	const struct gc9x01x_regs *regs = config->regs;
-	int ret;
-
-	if (!device_is_ready(config->mipi_dev)) {
-		return -ENODEV;
-	}
-
-	/* Enable inter-command mode */
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_INREGEN1, NULL, 0);
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_INREGEN2, NULL, 0);
-	if (ret < 0) {
-		return ret;
-	}
-
-	/* Apply default init sequence */
-	for (int i = 0; (i < ARRAY_SIZE(default_init_regs)) && (ret == 0); i++) {
-		ret = gc9x01x_transmit(dev, default_init_regs[i].cmd, default_init_regs[i].data,
-				       default_init_regs[i].len);
-		if (ret < 0) {
-			return ret;
-		}
-	}
-
-	/* Apply generic configuration */
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_PWRCTRL2, regs->pwrctrl2, sizeof(regs->pwrctrl2));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_PWRCTRL3, regs->pwrctrl3, sizeof(regs->pwrctrl3));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_PWRCTRL4, regs->pwrctrl4, sizeof(regs->pwrctrl4));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_GAMMA1, regs->gamma1, sizeof(regs->gamma1));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_GAMMA2, regs->gamma2, sizeof(regs->gamma2));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_GAMMA3, regs->gamma3, sizeof(regs->gamma3));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_GAMMA4, regs->gamma4, sizeof(regs->gamma4));
-	if (ret < 0) {
-		return ret;
-	}
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_FRAMERATE, regs->framerate,
-			       sizeof(regs->framerate));
-	if (ret < 0) {
-		return ret;
-	}
-
-	/* Enable Tearing line */
-	ret = gc9x01x_transmit(dev, GC9X01X_CMD_TEON, NULL, 0);
-	if (ret < 0) {
-		return ret;
-	}
-
-	return 0;
+	return mipi_dbi_command_write(config->mipi_dev, &config->dbi_config, cmd, tx_data, tx_len);
 }
 
 static int gc9x01x_exit_sleep(const struct device *dev)
@@ -307,12 +32,7 @@ static int gc9x01x_exit_sleep(const struct device *dev)
 	if (ret < 0) {
 		return ret;
 	}
-
-	/*
-	 * Exit sleepmode and enable display. 30ms on top of the sleepout time to account for
-	 * any manufacturing defects.
-	 * This is to allow time for the supply voltages and clock circuits stabilize
-	 */
+	/* Extra 30ms margin over spec for manufacturing tolerance */
 	k_msleep(GC9X01X_SLEEP_IN_OUT_DURATION_MS + 30);
 
 	return 0;
@@ -327,16 +47,11 @@ static int gc9x01x_enter_sleep(const struct device *dev)
 	if (ret < 0) {
 		return ret;
 	}
-
-	/*
-	 * Exit sleepmode and enable display. 30ms on top of the sleepout time to account for
-	 * any manufacturing defects.
-	 */
 	k_msleep(GC9X01X_SLEEP_IN_OUT_DURATION_MS + 30);
 
 	return 0;
 }
-#endif
+#endif /* CONFIG_PM_DEVICE */
 
 static int gc9x01x_hw_reset(const struct device *dev)
 {
@@ -349,7 +64,7 @@ static int gc9x01x_hw_reset(const struct device *dev)
 	}
 	k_msleep(10);
 
-	return ret;
+	return 0;
 }
 
 static int gc9x01x_display_blanking_off(const struct device *dev)
@@ -372,7 +87,7 @@ static int gc9x01x_set_pixel_format(const struct device *dev,
 	uint8_t tx_data;
 	uint8_t bytes_per_pixel;
 
-	if (pixel_format == PIXEL_FORMAT_RGB_565) {
+	if (pixel_format == PIXEL_FORMAT_RGB_565 || pixel_format == PIXEL_FORMAT_RGB_565X) {
 		bytes_per_pixel = 2U;
 		tx_data = GC9X01X_PIXFMT_VAL_MCU_16_BIT | GC9X01X_PIXFMT_VAL_RGB_16_BIT;
 	} else if (pixel_format == PIXEL_FORMAT_RGB_888) {
@@ -397,20 +112,18 @@ static int gc9x01x_set_pixel_format(const struct device *dev,
 static int gc9x01x_set_orientation(const struct device *dev,
 				   const enum display_orientation orientation)
 {
+	const struct gc9x01x_config *config = dev->config;
 	struct gc9x01x_data *data = dev->data;
 	int ret;
-	uint8_t tx_data = GC9X01X_MADCTL_VAL_BGR;
+	uint8_t tx_data = config->madctl_flags;
 
 	if (orientation == DISPLAY_ORIENTATION_NORMAL) {
-		/* works 0° - default */
+		/* no additional bits */
 	} else if (orientation == DISPLAY_ORIENTATION_ROTATED_90) {
-		/* works CW 90° */
 		tx_data |= GC9X01X_MADCTL_VAL_MV | GC9X01X_MADCTL_VAL_MY;
 	} else if (orientation == DISPLAY_ORIENTATION_ROTATED_180) {
-		/* works CW 180° */
 		tx_data |= GC9X01X_MADCTL_VAL_MY | GC9X01X_MADCTL_VAL_MX | GC9X01X_MADCTL_VAL_MH;
 	} else if (orientation == DISPLAY_ORIENTATION_ROTATED_270) {
-		/* works CW 270° */
 		tx_data |= GC9X01X_MADCTL_VAL_MV | GC9X01X_MADCTL_VAL_MX;
 	}
 
@@ -420,63 +133,6 @@ static int gc9x01x_set_orientation(const struct device *dev,
 	}
 
 	data->orientation = orientation;
-
-	return 0;
-}
-
-static int gc9x01x_configure(const struct device *dev)
-{
-	const struct gc9x01x_config *config = dev->config;
-	int ret;
-
-	/* Set all the required registers. */
-	ret = gc9x01x_regs_init(dev);
-	if (ret < 0) {
-		return ret;
-	}
-
-	/* Pixel format */
-	ret = gc9x01x_set_pixel_format(dev, config->pixel_format);
-	if (ret < 0) {
-		return ret;
-	}
-
-	/* Orientation */
-	ret = gc9x01x_set_orientation(dev, config->orientation);
-	if (ret < 0) {
-		return ret;
-	}
-
-	/* Display inversion mode. */
-	if (config->inversion) {
-		ret = gc9x01x_transmit(dev, GC9X01X_CMD_INVON, NULL, 0);
-		if (ret < 0) {
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
-static int gc9x01x_init(const struct device *dev)
-{
-	int ret;
-
-	gc9x01x_hw_reset(dev);
-
-	gc9x01x_display_blanking_on(dev);
-
-	ret = gc9x01x_configure(dev);
-	if (ret < 0) {
-		LOG_ERR("Could not configure display (%d)", ret);
-		return ret;
-	}
-
-	ret = gc9x01x_exit_sleep(dev);
-	if (ret < 0) {
-		LOG_ERR("Could not exit sleep mode (%d)", ret);
-		return ret;
-	}
 
 	return 0;
 }
@@ -549,15 +205,11 @@ static int gc9x01x_write(const struct device *dev, const uint16_t x, const uint1
 	}
 
 	for (write_cnt = 0U; write_cnt < nbr_of_writes; ++write_cnt) {
-		ret = mipi_dbi_write_display(config->mipi_dev,
-					     &config->dbi_config,
-					     write_data_start,
-					     &mipi_desc,
-					     data->pixel_format);
+		ret = mipi_dbi_write_display(config->mipi_dev, &config->dbi_config,
+					     write_data_start, &mipi_desc, data->pixel_format);
 		if (ret < 0) {
 			return ret;
 		}
-
 		write_data_start += desc->pitch * data->bytes_per_pixel;
 	}
 
@@ -572,7 +224,7 @@ static void gc9x01x_get_capabilities(const struct device *dev,
 
 	memset(capabilities, 0, sizeof(struct display_capabilities));
 
-	capabilities->supported_pixel_formats = PIXEL_FORMAT_RGB_565 | PIXEL_FORMAT_RGB_888;
+	capabilities->supported_pixel_formats = PIXEL_FORMAT_RGB_565 | PIXEL_FORMAT_RGB_565X | PIXEL_FORMAT_RGB_888;
 	capabilities->current_pixel_format = data->pixel_format;
 
 	if (data->orientation == DISPLAY_ORIENTATION_NORMAL ||
@@ -585,6 +237,97 @@ static void gc9x01x_get_capabilities(const struct device *dev,
 	}
 
 	capabilities->current_orientation = data->orientation;
+}
+
+static int gc9x01x_configure(const struct device *dev)
+{
+	const struct gc9x01x_config *config = dev->config;
+	int ret;
+
+	/* Enable extended register access, common to all GC9X01X family members */
+	ret = gc9x01x_transmit(dev, GC9X01X_CMD_INREGEN1, NULL, 0);
+	if (ret < 0) {
+		return ret;
+	}
+	ret = gc9x01x_transmit(dev, GC9X01X_CMD_INREGEN2, NULL, 0);
+	if (ret < 0) {
+		return ret;
+	}
+
+	/* Sub-model specific register initialization */
+	ret = config->regs_init_fn(dev);
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (config->te_before_display_config) {
+		ret = gc9x01x_transmit(dev, GC9X01X_CMD_TEON, NULL, 0);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+
+	/* Pixel format */
+	ret = gc9x01x_set_pixel_format(dev, config->pixel_format);
+	if (ret < 0) {
+		return ret;
+	}
+
+	/* Orientation */
+	ret = gc9x01x_set_orientation(dev, config->orientation);
+	if (ret < 0) {
+		return ret;
+	}
+
+	/* Display inversion */
+	if (config->inversion) {
+		ret = gc9x01x_transmit(dev, GC9X01X_CMD_INVON, NULL, 0);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+
+	/* Enable tearing effect line after display configuration for newer models. */
+	if (!config->te_before_display_config) {
+		ret = gc9x01x_transmit(dev, GC9X01X_CMD_TEON, NULL, 0);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int gc9x01x_init(const struct device *dev)
+{
+	int ret;
+
+	if (!device_is_ready(((const struct gc9x01x_config *)dev->config)->mipi_dev)) {
+		LOG_ERR("MIPI DBI device is not ready");
+		return -ENODEV;
+	}
+
+	ret = gc9x01x_hw_reset(dev);
+	if (ret < 0) {
+		LOG_ERR("Could not reset display (%d)", ret);
+		return ret;
+	}
+
+	gc9x01x_display_blanking_on(dev);
+
+	ret = gc9x01x_configure(dev);
+	if (ret < 0) {
+		LOG_ERR("Could not configure display (%d)", ret);
+		return ret;
+	}
+
+	ret = gc9x01x_exit_sleep(dev);
+	if (ret < 0) {
+		LOG_ERR("Could not exit sleep mode (%d)", ret);
+		return ret;
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_PM_DEVICE
@@ -608,7 +351,6 @@ static int gc9x01x_pm_action(const struct device *dev, enum pm_device_action act
 }
 #endif /* CONFIG_PM_DEVICE */
 
-/* Device driver API*/
 static DEVICE_API(display, gc9x01x_api) = {
 	.blanking_on = gc9x01x_display_blanking_on,
 	.blanking_off = gc9x01x_display_blanking_off,
@@ -618,27 +360,51 @@ static DEVICE_API(display, gc9x01x_api) = {
 	.set_orientation = gc9x01x_set_orientation,
 };
 
-#define GC9X01X_INIT(inst)                                                                         \
-	GC9X01X_REGS_INIT(inst);                                                                   \
-	static const struct gc9x01x_config gc9x01x_config_##inst = {                               \
-		.mipi_dev = DEVICE_DT_GET(DT_INST_PARENT(inst)),                                   \
-		.dbi_config = {                                                                    \
-			.mode = MIPI_DBI_MODE_SPI_4WIRE,                                           \
-			.config = MIPI_DBI_SPI_CONFIG_DT_INST(inst,                                \
-							      SPI_OP_MODE_MASTER |                 \
-							      SPI_WORD_SET(8), 0),                 \
-		},                                                                                 \
-		.pixel_format = DT_INST_PROP(inst, pixel_format),                                  \
-		.orientation = DT_INST_ENUM_IDX(inst, orientation),                                \
-		.x_resolution = DT_INST_PROP(inst, width),                                         \
-		.y_resolution = DT_INST_PROP(inst, height),                                        \
-		.inversion = DT_INST_PROP(inst, display_inversion),                                \
-		.regs = &gc9x01x_regs_##inst,                                                      \
-	};                                                                                         \
-	static struct gc9x01x_data gc9x01x_data_##inst;                                            \
-	PM_DEVICE_DT_INST_DEFINE(inst, gc9x01x_pm_action);                                         \
-	DEVICE_DT_INST_DEFINE(inst, &gc9x01x_init, PM_DEVICE_DT_INST_GET(inst),                    \
-			      &gc9x01x_data_##inst, &gc9x01x_config_##inst, POST_KERNEL,           \
-			      CONFIG_DISPLAY_INIT_PRIORITY, &gc9x01x_api);
+#define INST_DT_GC9X01X(n, t) DT_INST(n, galaxycore_gc##t)
 
-DT_INST_FOREACH_STATUS_OKAY(GC9X01X_INIT)
+#define GC9X01X_INIT(n, t)                                                                  \
+	GC##t##_REGS_INIT(n);                                                               \
+                                                                                            \
+	static const struct gc9x01x_config gc##t##_config_##n = {                           \
+		.mipi_dev = DEVICE_DT_GET(DT_PARENT(INST_DT_GC9X01X(n, t))),                \
+		.dbi_config = {                                                             \
+			.mode = MIPI_DBI_MODE_SPI_4WIRE,                                    \
+			.config = MIPI_DBI_SPI_CONFIG_DT(INST_DT_GC9X01X(n, t),             \
+							 SPI_OP_MODE_MASTER |           \
+							 SPI_WORD_SET(8), 0),           \
+		},                                                                          \
+		.pixel_format = DT_PROP(INST_DT_GC9X01X(n, t), pixel_format),                \
+		.orientation = DT_ENUM_IDX(INST_DT_GC9X01X(n, t), orientation),              \
+		.x_resolution = DT_PROP(INST_DT_GC9X01X(n, t), width),                       \
+		.y_resolution = DT_PROP(INST_DT_GC9X01X(n, t), height),                      \
+		.inversion = DT_PROP(INST_DT_GC9X01X(n, t), display_inversion),              \
+		.te_before_display_config = GC##t##_TE_BEFORE_DISPLAY_CONFIG,                 \
+		.madctl_flags = GC##t##_MADCTL_BASE,                                        \
+		.regs = &gc##t##_regs_##n,                                                  \
+		.regs_init_fn = gc##t##_regs_init,                                          \
+	};                                                                                  \
+	static struct gc9x01x_data gc##t##_data_##n;                                        \
+                                                                                            \
+	PM_DEVICE_DT_DEFINE(INST_DT_GC9X01X(n, t), gc9x01x_pm_action);                     \
+	DEVICE_DT_DEFINE(INST_DT_GC9X01X(n, t), gc9x01x_init,                               \
+			 PM_DEVICE_DT_GET(INST_DT_GC9X01X(n, t)),                          \
+			 &gc##t##_data_##n, &gc##t##_config_##n,                          \
+			 POST_KERNEL, CONFIG_DISPLAY_INIT_PRIORITY, &gc9x01x_api)
+
+#define DT_INST_FOREACH_GC9X01X_STATUS_OKAY(t) \
+	LISTIFY(DT_NUM_INST_STATUS_OKAY(galaxycore_gc##t), GC9X01X_INIT, (;), t)
+
+#ifdef CONFIG_GC9101A
+#include "display_gc9101a.h"
+DT_INST_FOREACH_GC9X01X_STATUS_OKAY(9101a);
+#endif
+
+#ifdef CONFIG_GC9D01N
+#include "display_gc9d01n.h"
+DT_INST_FOREACH_GC9X01X_STATUS_OKAY(9d01n);
+#endif
+
+#ifdef CONFIG_GC9X01X
+#include "display_gc9x01x_legacy.h"
+DT_INST_FOREACH_GC9X01X_STATUS_OKAY(9x01x);
+#endif

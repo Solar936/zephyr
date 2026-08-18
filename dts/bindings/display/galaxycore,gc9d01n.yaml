@@ -1,0 +1,60 @@
+# Copyright (c) 2024 NIU Technologies
+# SPDX-License-Identifier: Apache-2.0
+
+title: GC9D01N display controller (galaxycore,gc9d01n)
+
+description: |
+  GalaxyCore GC9D01N TFT LCD display controller. Defaults match the
+  BOE NT071BB-C12 0.71" 160x160 round LCD panel.
+
+compatible: "galaxycore,gc9d01n"
+
+include: "galaxycore,gc9x01x-common.yaml"
+
+properties:
+  pwrctrl2:
+    type: uint8-array
+    default: [0x18]
+    description: |
+      Power-control 2 register (0xC3) value. Adjusts AVDD/VCL voltage level.
+      Default 0x18 is tuned for BOE NT071BB-C12 panel.
+
+  pwrctrl3:
+    type: uint8-array
+    default: [0x18]
+    description: |
+      Power-control 3 register (0xC4) value. Adjusts VGH/VGL voltage level.
+      Default 0x18 is tuned for BOE NT071BB-C12 panel.
+
+  pwrctrl4:
+    type: uint8-array
+    default: [0x3C]
+    description: Power-control 4 register (0xC9) value. VCOM voltage setting.
+
+  gamma1:
+    type: uint8-array
+    default: [0x13, 0x15, 0x04, 0x05, 0x01, 0x38]
+    description: |
+      Gamma correction 1 register (0xF0, negative polarity) values.
+      Default tuned for BOE NT071BB-C12 panel.
+
+  gamma2:
+    type: uint8-array
+    default: [0x4B, 0xB8, 0x7B, 0x34, 0x35, 0xEF]
+    description: |
+      Gamma correction 2 register (0xF1) values.
+      Default tuned for BOE NT071BB-C12 panel.
+
+  gamma3:
+    type: uint8-array
+    default: [0x13, 0x15, 0x04, 0x05, 0x01, 0x34]
+    description: |
+      Gamma correction 3 register (0xF2, positive polarity) values.
+      Default tuned for BOE NT071BB-C12 panel.
+
+  gamma4:
+    type: uint8-array
+    default: [0x47, 0xB4, 0x72, 0x34, 0x35, 0xDA]
+    description: |
+      Gamma correction 4 register (0xF3) values.
+      Default tuned for BOE NT071BB-C12 panel.

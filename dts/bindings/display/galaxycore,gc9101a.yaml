@@ -3,23 +3,17 @@
 # Copyright (c) 2023 Martin Kiepfer <mrmarteng@teleschirm.org>
 # SPDX-License-Identifier: Apache-2.0
 
-title: GC9X01X family display controller (galaxycore,gc9x01x)
+title: GC9101A display controller (galaxycore,gc9101a)
 
 description: |
-  Legacy GalaxyCore GC9X01X TFT LCD display controller family binding.
-  This keeps existing `galaxycore,gc9x01x` boards working while the
-  concrete `gc9101a` and `gc9d01n` bindings use the split model layout.
+  GalaxyCore GC9101A TFT LCD display controller. Defaults match the
+  Waveshare 1.28" 240x240 round LCD panel.
 
-compatible: "galaxycore,gc9x01x"
+compatible: "galaxycore,gc9101a"
 
 include: "galaxycore,gc9x01x-common.yaml"
 
 properties:
-  pwrctrl1:
-    type: uint8-array
-    default: [0x00]
-    description: Power-control 1 register (0xC1) value
-
   pwrctrl2:
     type: uint8-array
     default: [0x13]

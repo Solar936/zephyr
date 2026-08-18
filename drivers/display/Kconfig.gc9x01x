@@ -2,9 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config GC9X01X
-	bool "GC9X01X display driver"
-	default y
-	depends on DT_HAS_GALAXYCORE_GC9X01X_ENABLED
+	bool
+	default y if DT_HAS_GALAXYCORE_GC9X01X_ENABLED
 	select MIPI_DBI
 	help
-	  Enable driver for GC9X01X display driver.
+	  Hidden config selected by all GC9X01X-family display drivers.
+
+config GC9101A
+	bool "GC9101A display driver"
+	default y
+	depends on DT_HAS_GALAXYCORE_GC9101A_ENABLED
+	select GC9X01X
+	help
+	  Enable driver for GC9101A display controller (compatible
+	  galaxycore,gc9101a). Defaults match the Waveshare 1.28" 240x240
+	  round LCD panel.
+
+config GC9D01N
+	bool "GC9D01N display driver"
+	default y
+	depends on DT_HAS_GALAXYCORE_GC9D01N_ENABLED
+	select GC9X01X
+	help
+	  Enable driver for GC9D01N display controller (compatible
+	  galaxycore,gc9d01n). Defaults match the BOE NT071BB-C12 0.71"
+	  160x160 round LCD panel.
